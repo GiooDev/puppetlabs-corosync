@@ -115,6 +115,7 @@ class corosync(
   $quorum_members                      = ['localhost'],
   $token                               = $::corosync::params::token,
   $token_retransmits_before_loss_const = $::corosync::params::token_retransmits_before_lost_const,
+  $cluster_name                        = $::corosync::params::cluster_name,
 ) inherits ::corosync::params {
 
   if $set_votequorum and !$quorum_members {
