@@ -288,6 +288,11 @@ class corosync(
         ensure => $_version_pcs,
       }
     }
+    service { 'pcsd':
+      ensure  => running,
+      enable  => true,
+      require => Package['pcs'],
+    }
   }
   
   # Template uses:
