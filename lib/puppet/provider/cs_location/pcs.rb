@@ -11,6 +11,35 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
 
   commands :pcs => 'pcs'
 
+  # given an XML element containing some <expression>s, return a hash. Return an
+  # empty hash if `e` is nil.
+  def self.rules_to_hash(e)
+    return {} if e.nil?
+
+    hash = {}
+    e.each_element do |i|
+      hash[(i.attributes['name'])] = i.attributes['value']
+    end
+
+    hash
+  end
+
+  # given an XML element (a <rsc_location> from cibadmin), produce a hash
+  # suitable for creating a new provider instance.
+  def self.element_to_hash(e)
+    hash = {
+      :name       => e.attributes['id'],
+      :ensure     => :present,
+      :primitive  => e.attributes['rsc'],
+      :node_name  => e.attributes['node'],
+      :score      => e.attributes['score'],
+      :provider   => self.name,
+      :rule       => rules_to_hash(e.elements['rule']),
+    }
+
+    hash
+  end
+
   def self.instances
 
     block_until_ready
@@ -21,18 +50,8 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
     raw, status = run_pcs_command(cmd)
     doc = REXML::Document.new(raw)
 
-    doc.root.elements['configuration'].elements['constraints'].each_element('rsc_location') do |e|
-      items = e.attributes
-
-      location_instance = {
-        :name       => items['id'],
-        :ensure     => :present,
-        :primitive  => items['rsc'],
-        :node_name  => items['node'],
-        :score      => items['score'],
-        :provider   => self.name
-      }
-      instances << new(location_instance)
+    REXML::XPath.each(doc, '//rsc_location') do |e|
+      instances << new(element_to_hash(e))
     end
     instances
   end
@@ -46,8 +65,9 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
       :primitive  => @resource[:primitive],
       :node_name  => @resource[:node_name],
       :score      => @resource[:score],
-      :cib        => @resource[:cib]
+      :cib        => @resource[:cib],
     }
+    @property_hash[:rule] = @resource[:rule] if ! @resource[:rule].nil?
   end
 
   # Unlike create we actually immediately delete the item.
@@ -73,6 +93,10 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
     @property_hash[:score]
   end
 
+  def rule
+    @property_hash[:rule]
+  end
+
   # Our setters for parameters.  Setters are used when the resource already
   # exists so we just update the current value in the location_hash and doing
   # this marks it to be flushed.
@@ -88,13 +112,30 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
     @property_hash[:score] = should
   end
 
+  def rule=(should)
+    @property_hash[:rule] = should
+  end
+
   # Flush is triggered on anything that has been detected as being
   # modified in the location_hash.
   # It calls several pcs commands to make the resource look like the
   # params.
   def flush
     unless @property_hash.empty?
-      cmd = [ command(:pcs), 'constraint', 'location', 'add', @property_hash[:name], @property_hash[:primitive], @property_hash[:node_name], @property_hash[:score]]
+      unless @property_hash[:rule].nil?
+        score_param = [] # default value: score=INFINITY
+        rule_params = []
+        @property_hash[:rule].each_pair do |k,v|
+          if k == 'expression' # expression
+            rule_params = [ v['attribute'], v['operation'], v['value'] ]
+          elsif k =~ /score/   # score or score-attribute
+            score_param = "#{k}=#{v}"
+          end
+        end
+        cmd = [ command(:pcs), 'constraint', 'location', @property_hash[:primitive], 'rule', score_param, rule_params ]
+      else
+        cmd = [ command(:pcs), 'constraint', 'location', 'add', @property_hash[:name], @property_hash[:primitive], @property_hash[:node_name], @property_hash[:score]]
+      end
       Puppet::Provider::Pacemaker::run_pcs_command(cmd)
     end
   end

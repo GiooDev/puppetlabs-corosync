@@ -109,6 +109,24 @@ cs_location { 'nginx_service_location':
   score     => 'INFINITY'
 }
 ```
+
+To manage rule on a location.
+Example to force the location to not run on a container (VM).
+
+```puppet
+cs_location { 'nginx_service_location':
+  primitive => 'nginx_service',
+  node_name => 'hostname',
+  score     => 'INFINITY',
+  rule      => { 'score'      => '-INFINITY', 
+                 'expression' => { 'attribute' => '#kind',
+                                   'operation' => 'eq',
+                                   'value'     => 'container'
+                 }
+               }
+}
+```
+
 Configuring colocations
 -----------------------
 
