@@ -43,6 +43,12 @@ Puppet::Type.newtype(:cs_location) do
     defaultto 'INFINITY'
   end
 
+  newproperty(:rule) do
+    desc "The rule of this location.
+
+          The rule_type should be expression or date_expression."
+  end
+
   autorequire(:cs_shadow) do
     [ @parameters[:cib] ]
   end
