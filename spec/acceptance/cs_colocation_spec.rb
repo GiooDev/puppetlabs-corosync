@@ -1,3 +1,4 @@
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper_acceptance'
 
 describe 'corosync' do
@@ -30,7 +31,7 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
       class { 'corosync':
         multicast_address => '224.0.0.1',
         authkey           => '/tmp/ca.pem',
-        bind_address      => $ipaddress,
+        bind_address      => '127.0.0.1',
         set_votequorum    => true,
         quorum_members    => ['127.0.0.1'],
       }
@@ -38,8 +39,18 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
         version => '1',
         before  => Service['pacemaker'],
       }
+      if $::osfamily == 'RedHat' {
+        exec { 'stop_pacemaker':
+          command     => 'service pacemaker stop',
+          path        => ['/bin','/sbin','/usr/sbin/'],
+          refreshonly => true,
+          notify      => Service['corosync'],
+          subscribe   => File['/etc/corosync/corosync.conf'],
+        }
+      }
       service { 'pacemaker':
-        ensure => running,
+        ensure    => running,
+        subscribe => Service['corosync'],
       }
       cs_property { 'stonith-enabled' :
         value   => 'false',
