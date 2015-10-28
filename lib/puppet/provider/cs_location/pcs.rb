@@ -122,21 +122,21 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
   # params.
   def flush
     unless @property_hash.empty?
-      cmd = [ command(:pcs), 'constraint', 'location', 'add', @property_hash[:name], @property_hash[:primitive], @property_hash[:node_name], @property_hash[:score]]
-      Puppet::Provider::Pacemaker::run_pcs_command(cmd)
-    end
-    unless @property_hash[:rule].nil?
-      score_param = [] # default value: score=INFINITY
-      rule_params = []
-      @property_hash[:rule].each_pair do |k,v|
-        if k == 'expression'
-          rule_params = [ v['attribute'], v['operation'], v['value'] ]
-        elsif k == 'score' or k == 'score-attribute'
-          score_param = "#{k}=#{v}"
+      unless @property_hash[:rule].nil?
+        score_param = [] # default value: score=INFINITY
+        rule_params = []
+        @property_hash[:rule].each_pair do |k,v|
+          if k == 'expression' # expression
+            rule_params = [ v['attribute'], v['operation'], v['value'] ]
+          elsif k =~ /score/   # score or score-attribute
+            score_param = "#{k}=#{v}"
+          end
         end
+        cmd = [ command(:pcs), 'constraint', 'location', @property_hash[:primitive], 'rule', score_param, rule_params ]
+      else
+        cmd = [ command(:pcs), 'constraint', 'location', 'add', @property_hash[:name], @property_hash[:primitive], @property_hash[:node_name], @property_hash[:score]]
       end
-      cmd_rule = [ command(:pcs), 'constraint', 'location', @property_hash[:primitive], 'rule', score_param, rule_params ]
-      Puppet::Provider::Pacemaker::run_pcs_command(cmd_rule)
+      Puppet::Provider::Pacemaker::run_pcs_command(cmd)
     end
   end
 end
