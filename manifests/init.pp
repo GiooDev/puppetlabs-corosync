@@ -288,6 +288,11 @@ class corosync(
       package { 'pcs':
         ensure => $_version_pcs,
       }
+      service { 'pcsd':
+        ensure  => running,
+        enable  => true,
+        require => Package['pcs'],
+      }
     }
     service { 'pcsd':
       ensure  => running,
