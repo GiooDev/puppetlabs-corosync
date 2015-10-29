@@ -101,6 +101,10 @@
 # [*token_retransmits_before_loss_const*]
 #   How many token retransmits before forming a new configuration
 #
+# [*cluster_name*]
+#   This specifies the name of cluster and it's used for automatic 
+#   generating of multicast address.
+#
 # === Deprecated Parameters
 #
 # [*packages*]
