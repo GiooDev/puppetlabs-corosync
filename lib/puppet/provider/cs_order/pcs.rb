@@ -120,6 +120,8 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
         Puppet::Provider::Pacemaker::run_pcs_command(cmd)
       end
 
+      ENV['CIB_shadow'] = @property_hash[:cib]
+
       cmd = [ command(:pcs), 'constraint', 'order' ]
       rsc = @property_hash[:first]
       if rsc.include? ':'
