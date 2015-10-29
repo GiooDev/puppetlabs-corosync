@@ -62,6 +62,9 @@ quorum {
 <% if @quorum_expected_votes -%>
   expected_votes: <%= @quorum_expected_votes %>
 <% end -%>
+<% if [@quorum_members].flatten.count == 2 -%>
+  two_node: 1
+<% end -%>
 }
 
 nodelist {
