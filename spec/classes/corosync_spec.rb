@@ -10,11 +10,11 @@ describe 'corosync' do
   shared_examples_for 'corosync' do
     it { is_expected.to compile }
 
-    context 'when set_quorum is true and quorum_members are set' do
+    context 'when set_quorum is true and quorum_members_ring0 are set' do
       before :each do
         params.merge!(
-          { :set_votequorum => true,
-            :quorum_members => ['node1.test.org', 'node2.test.org'] }
+          { :set_votequorum       => true,
+            :quorum_members_ring0 => ['node1.test.org', 'node2.test.org'] }
         )
       end
 
@@ -31,13 +31,43 @@ describe 'corosync' do
       end
     end
 
+
+    context 'when set_quorum is true and quorum_members_ring0,quorum_members_ring1 are set' do
+      before :each do
+        params.merge!(
+          { :set_votequorum       => true,
+            :quorum_members_ring0 => ['node1.test.org', 'node2.test.org'],
+            :quorum_members_ring1 => ['node3.test.org', 'node4.test.org'] }
+        )
+      end
+
+      it 'configures votequorum' do
+        should contain_file('/etc/corosync/corosync.conf').with_content(
+          /nodelist/
+        )
+        should contain_file('/etc/corosync/corosync.conf').with_content(
+          /ring0_addr\: node1\.test\.org/
+        )
+        should contain_file('/etc/corosync/corosync.conf').with_content(
+          /ring0_addr\: node2\.test\.org/
+        )
+        should contain_file('/etc/corosync/corosync.conf').with_content(
+          /ring1_addr\: node3\.test\.org/
+        )
+        should contain_file('/etc/corosync/corosync.conf').with_content(
+          /ring1_addr\: node4\.test\.org/
+        )
+      end
+    end
+
+
     context 'when set_quorum is true and unicast is used' do
       before :each do
         params.merge!(
-          { :set_votequorum => true,
-            :quorum_members => ['node1.test.org', 'node2.test.org'],
-            :multicast_address => 'UNSET',
-            :unicast_addresses => ['192.168.1.1', '192.168.1.2'], }
+          { :set_votequorum       => true,
+            :quorum_members_ring0 => ['node1.test.org', 'node2.test.org'],
+            :multicast_address    => 'UNSET',
+            :unicast_addresses    => ['192.168.1.1', '192.168.1.2'], }
         )
       end
 
@@ -124,18 +154,18 @@ describe 'corosync' do
     }
 
 
-    context 'when set_quorum is true and quorum_members are not set' do
+    context 'when set_quorum is true and quorum_members_ring0 are not set' do
       before :each do
         params.merge!(
-          { :set_votequorum => true,
-            :quorum_members => false }
+          { :set_votequorum       => true,
+            :quorum_members_ring0 => false }
         )
       end
 
       it 'raises error' do
         should raise_error(
             Puppet::Error,
-            /set_votequorum is true, but no quorum_members have been passed./
+            /set_votequorum is true, but no quorum_members_ring0 have been passed./
         )
       end
     end

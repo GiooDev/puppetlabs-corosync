@@ -88,12 +88,17 @@
 #
 # [*set_votequorum*]
 #   Set to true if corosync_votequorum should be used as quorum provider.
-#   Defaults to false.
+#   Defaults to false on Debian, true on RedHat
 #
-# [*quorum_members*]
-#   Array of quorum member hostname. This is required if set_votequorum
+# [*quorum_members_ring0*]
+#   Array of quorum member for ring0. This is required if set_votequorum
 #   is set to true.
-#   Defaults to undef,
+#   Defaults to localhost
+#
+# [*quorum_members_ring1*]
+#   Array of quorum member for ring1. This is optionnal if you already
+#   set the array quorum_members_ring0
+#   Defaults to undef
 #
 # [*quorum_expected_votes*]
 #   Number of expected votes.
@@ -154,14 +159,15 @@ class corosync(
   $version_pcs                         = undef,
   $set_votequorum                      = $::corosync::params::set_votequorum,
   $quorum_expected_votes               = $::corosync::params::quorum_expected_votes,
-  $quorum_members                      = ['localhost'],
+  $quorum_members_ring0                = ['localhost'],
+  $quorum_members_ring1                = undef,
   $token                               = $::corosync::params::token,
   $token_retransmits_before_loss_const = $::corosync::params::token_retransmits_before_lost_const,
   $cluster_name                        = $::corosync::params::cluster_name,
 ) inherits ::corosync::params {
 
-  if $set_votequorum and !$quorum_members {
-    fail('set_votequorum is true, but no quorum_members have been passed.')
+  if $set_votequorum and !$quorum_members_ring0 {
+    fail('set_votequorum is true, but no quorum_members_ring0 have been passed.')
   }
 
   if $packages {

@@ -67,9 +67,12 @@ quorum {
 }
 
 nodelist {
-<% [@quorum_members].flatten.each_index do |i| -%>
+<% [@quorum_members_ring0].flatten.each_index do |i| -%>
   node {
-    ring0_addr: <%= [@quorum_members].flatten[i] %>
+    ring0_addr: <%= [@quorum_members_ring0].flatten[i] %>
+<% unless @quorum_members_ring1.nil? -%>
+    ring1_addr: <%= [@quorum_members_ring1].flatten[i] %>
+<% end -%>
     nodeid: <%= i+1 %>
   }
 <% end -%>
