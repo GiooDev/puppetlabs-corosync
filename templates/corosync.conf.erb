@@ -2,7 +2,7 @@ compatibility: whitetank
 
 totem {
   version:                             2
-<% if @cluster_name -%>
+<% unless @cluster_name.nil? -%>
   cluster_name:                        <%= @cluster_name %>
 <% end -%>
   token:                               <%= @token %>
