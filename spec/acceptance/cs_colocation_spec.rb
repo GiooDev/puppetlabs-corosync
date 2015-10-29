@@ -29,11 +29,11 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
         content => '#{cert}'
       } ->
       class { 'corosync':
-        multicast_address => '224.0.0.1',
-        authkey           => '/tmp/ca.pem',
-        bind_address      => '127.0.0.1',
-        set_votequorum    => true,
-        quorum_members    => ['127.0.0.1'],
+        multicast_address    => '224.0.0.1',
+        authkey              => '/tmp/ca.pem',
+        bind_address         => '127.0.0.1',
+        set_votequorum       => true,
+        quorum_members_ring0 => ['127.0.0.1'],
       }
       corosync::service { 'pacemaker':
         version => '1',
