@@ -57,4 +57,10 @@ Puppet::Type.newtype(:cs_location) do
     [ 'corosync' ]
   end
 
+  validate do
+    if [ self[:node_name], self[:rule] ].compact.length > 1
+        fail('Location constraints dictate that node_name and rule cannot co-exist for this type.') unless self[:rule].empty?
+    end
+  end
+
 end
