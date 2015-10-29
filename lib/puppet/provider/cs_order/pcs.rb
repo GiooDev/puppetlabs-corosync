@@ -25,13 +25,13 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
     doc.root.elements['configuration'].elements['constraints'].each_element('rsc_order') do |e|
       items = e.attributes
 
-      if items['first-action']
+      if items['first-action'] and items['first-action'] != 'start'
         first = "#{items['first']}:#{items['first-action']}"
       else
         first = items['first']
       end
 
-      if items['then-action']
+      if items['then-action'] and items['then-action'] != 'start'
         second = "#{items['then']}:#{items['then-action']}"
       else
         second = items['then']
@@ -135,6 +135,8 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
         cmd=[ command(:pcs), 'constraint', 'remove', @resource[:name]]
         Puppet::Provider::Pacemaker::run_pcs_command(cmd)
       end
+
+      ENV['CIB_shadow'] = @property_hash[:cib]
 
       cmd = [ command(:pcs), 'constraint', 'order' ]
       rsc = @property_hash[:first]
