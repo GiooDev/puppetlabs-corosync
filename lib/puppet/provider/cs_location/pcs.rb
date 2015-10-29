@@ -132,11 +132,14 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
             score_param = "#{k}=#{v}"
           end
         end
-        cmd = [ command(:pcs), 'constraint', 'location', @property_hash[:primitive], 'rule', score_param, rule_params ]
+        cmd = [ command(:pcs), 'constraint', 'location', 'add', @property_hash[:name], @property_hash[:primitive], @property_hash[:node_name], @property_hash[:score] ]
+        Puppet::Provider::Pacemaker::run_pcs_command(cmd)
+        cmd = [ command(:pcs), 'constraint', 'rule', 'add', @property_hash[:name], score_param, rule_params ]
+        Puppet::Provider::Pacemaker::run_pcs_command(cmd)
       else
         cmd = [ command(:pcs), 'constraint', 'location', 'add', @property_hash[:name], @property_hash[:primitive], @property_hash[:node_name], @property_hash[:score]]
+        Puppet::Provider::Pacemaker::run_pcs_command(cmd)
       end
-      Puppet::Provider::Pacemaker::run_pcs_command(cmd)
     end
   end
 end
