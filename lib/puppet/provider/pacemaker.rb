@@ -10,13 +10,13 @@ class Puppet::Provider::Pacemaker < Puppet::Provider
     if Puppet::PUPPETVERSION.to_f < 3.4
       raw, status = Puppet::Util::SUIDManager.run_and_capture(pcs_cmd)
     else
-      raw = Puppet::Util::Execution.execute(pcs_cmd, {:failonfail => failonfail})
+      raw = Puppet::Util::Execution.execute(pcs_cmd, {:failonfail => failonfail, :combine => true})
       status = raw.exitstatus
     end
     if status == 0 or failonfail == false
       return raw, status
     else
-      fail("command #{pcs_cmd.join(" ")} failed")
+      fail("command #{pcs_cmd.join(" ")} failed: #{raw}")
     end
   end
 
