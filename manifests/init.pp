@@ -119,10 +119,15 @@
 #   Defaults to true on Ubuntu version 14.04 or greater.
 #   Defaults to false on all other operating systems.
 #
-# [*quorum_members*]
-#   Array of quorum member hostname. This is required if set_votequorum
+# [*quorum_members_ring0*]
+#   Array of quorum member for ring0. This is required if set_votequorum
 #   is set to true.
 #   Defaults to ['localhost']
+#
+# [*quorum_members_ring1*]
+#   Array of quorum member for ring1. This is optionnal if you already
+#   set the array quorum_members_ring0
+#   Defaults to undef
 #
 # [*quorum_members_ids*]
 #   Array of quorum member IDs. Persistent IDs are required for the dynamic
@@ -223,7 +228,8 @@ class corosync(
   $version_pcs                         = undef,
   $set_votequorum                      = $::corosync::params::set_votequorum,
   $votequorum_expected_votes           = $::corosync::params::votequorum_expected_votes,
-  $quorum_members                      = ['localhost'],
+  $quorum_members_ring0                = ['localhost'],
+  $quorum_members_ring1                = undef,
   $quorum_members_ids                  = undef,
   $token                               = $::corosync::params::token,
   $token_retransmits_before_loss_const = $::corosync::params::token_retransmits_before_lost_const,
@@ -236,8 +242,8 @@ class corosync(
   $max_messages                        = $::corosync::params::max_messages,
 ) inherits ::corosync::params {
 
-  if $set_votequorum and !$quorum_members {
-    fail('set_votequorum is true, but no quorum_members have been passed.')
+  if $set_votequorum and !$quorum_members_ring0 {
+    fail('set_votequorum is true, but no quorum_members_ring0 have been passed.')
   }
 
   if $quorum_members_ids and !$quorum_members {

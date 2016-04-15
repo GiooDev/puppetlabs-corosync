@@ -85,7 +85,7 @@ quorum {
   two_node: 1
 <% end -%>
 <% else -%>
-<% if [@quorum_members].flatten.count == 2 -%>
+<% if [@quorum_members_ring0].flatten.count == 2 -%>
   two_node: 1
 <% end -%>
 <% end -%>
@@ -93,9 +93,12 @@ quorum {
 
 <% unless @votequorum_expected_votes -%>
 nodelist {
-<% [@quorum_members].flatten.each_index do |i| -%>
+<% [@quorum_members_ring0].flatten.each_index do |i| -%>
   node {
-    ring0_addr: <%= [@quorum_members].flatten[i] %>
+    ring0_addr: <%= [@quorum_members_ring0].flatten[i] %>
+<% unless @quorum_members_ring1.nil? -%>
+    ring1_addr: <%= [@quorum_members_ring1].flatten[i] %>
+<% end -%>
 <% if @quorum_members_ids.nil? -%>
     nodeid: <%= i+1 %>
 <% else -%>
