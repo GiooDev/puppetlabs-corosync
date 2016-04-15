@@ -487,7 +487,7 @@ class corosync(
   if $manage_pacemaker_service {
     service { 'pacemaker':
       ensure     => running,
-      enable     => true,
+      enable     => false,
       hasrestart => true,
       subscribe  => Service['corosync'],
     }
@@ -495,7 +495,7 @@ class corosync(
 
   service { 'corosync':
     ensure    => running,
-    enable    => true,
+    enable    => false,
     subscribe => File[ [ '/etc/corosync/corosync.conf', '/etc/corosync/service.d' ] ],
   }
 }
