@@ -51,11 +51,23 @@ Puppet::Type.newtype(:cs_location) do
     defaultto 'INFINITY'
   end
 
+  newproperty(:rule) do
+    desc "The rule of this location.
+
+          The rule_type should be expression or date_expression."
+  end
+
   autorequire(:cs_shadow) do
     [@parameters[:cib]]
   end
 
   autorequire(:service) do
     %w(corosync pacemaker)
+  end
+
+  validate do
+    if [self[:node_name], self[:rule]].compact.length > 1
+      raise Puppet::Error, 'Location constraints dictate that node_name and rule cannot co-exist for this type.'
+    end
   end
 end
