@@ -101,4 +101,25 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
       expect(r.stdout).not_to match(%r{resource-discovery="exclusive"}) if fact('osfamily') != 'RedHat'
     end
   end
+
+  it 'should create a location with a rule' do
+    pp = <<-EOS
+      cs_location { 'duncan_vip_rule':
+        primitive => 'duncan_vip',
+        rule      => {
+            score      => '-INFINITY',
+            expression => {
+                attribute => '#kind',
+                operation => 'eq',
+                value     => 'container',
+            },
+      }
+    EOS
+    apply_manifest(pp, debug: true, catch_failures: true)
+    apply_manifest(pp, debug: true, catch_changes: true)
+    shell('cibadmin --query | grep duncan_vip_rule') do |r|
+      expect(r.stdout).to match(%r{rule})
+      expect(r.stdout).to match(%r{attribute="#kind"})
+    end
+  end
 end
