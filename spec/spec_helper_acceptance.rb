@@ -26,14 +26,13 @@ RSpec.configure do |c|
       default[:default_apply_opts][:parser] = 'future'
     end
 
-    copy_root_module_to(default, :source => proj_root, :module_name => 'corosync')
+    copy_root_module_to(default, source: proj_root, module_name: 'corosync')
     hosts.each do |host|
-      on host, puppet('module', 'install', 'puppetlabs-stdlib'), :acceptable_exit_codes => [0, 1]
+      on host, puppet('module', 'install', 'puppetlabs-stdlib'), acceptable_exit_codes: [0, 1]
     end
   end
 end
 
-# rubocop:disable Style/PredicateName
 def is_future_parser_enabled?
   # rubocop:disable Style/GuardClause
   if default[:type] == 'aio'
@@ -44,7 +43,6 @@ def is_future_parser_enabled?
   end
   false
 end
-# rubocop:enable Style/PredicateName
 
 # rubocop:disable Style/AccessorMethodName
 def get_puppet_version
@@ -55,7 +53,7 @@ end
 RSpec.shared_context 'with faked facts' do
   let(:facts_d) do
     puppet_version = get_puppet_version
-    if fact('osfamily') =~ /windows/i
+    if fact('osfamily') =~ %r{windows}i
       if fact('kernelmajversion').to_f < 6.0
         'C:/Documents and Settings/All Users/Application Data/PuppetLabs/facter/facts.d'
       else
@@ -70,11 +68,11 @@ RSpec.shared_context 'with faked facts' do
 
   before :each do
     # No need to create on windows, PE creates by default
-    shell("mkdir -p '#{facts_d}'") if fact('osfamily') !~ /windows/i
+    shell("mkdir -p '#{facts_d}'") if fact('osfamily') !~ %r{windows}i
   end
 
   after :each do
-    shell("rm -f '#{facts_d}/fqdn.txt'", :acceptable_exit_codes => [0, 1])
+    shell("rm -f '#{facts_d}/fqdn.txt'", acceptable_exit_codes: [0, 1])
   end
 
   def fake_fact(name, value)

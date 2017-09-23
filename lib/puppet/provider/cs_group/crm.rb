@@ -1,11 +1,17 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'crmsh'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/crmsh'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/crmsh'
+end
 
-Puppet::Type.type(:cs_group).provide(:crm, :parent => Puppet::Provider::Crmsh) do
+Puppet::Type.type(:cs_group).provide(:crm, parent: PuppetX::Voxpupuli::Corosync::Provider::Crmsh) do
   desc 'Provider to add, delete, manipulate primitive groups.'
 
   # Path to the crm binary for interacting with the cluster configuration.
-  commands :crm => '/usr/sbin/crm'
+  commands crm: '/usr/sbin/crm'
 
   def self.instances
     block_until_ready
@@ -27,7 +33,7 @@ Puppet::Type.type(:cs_group).provide(:crm, :parent => Puppet::Provider::Crmsh) d
 
     REXML::XPath.each(doc, '//group') do |e|
       items = e.attributes
-      group = { :name => items['id'].to_sym }
+      group = { name: items['id'].to_sym }
 
       primitives = []
 
@@ -38,10 +44,10 @@ Puppet::Type.type(:cs_group).provide(:crm, :parent => Puppet::Provider::Crmsh) d
       end
 
       group_instance = {
-        :name       => group[:name],
-        :ensure     => :present,
-        :primitives => primitives,
-        :provider   => name
+        name:       group[:name],
+        ensure:     :present,
+        primitives: primitives,
+        provider:   name
       }
       instances << new(group_instance)
     end
@@ -52,9 +58,9 @@ Puppet::Type.type(:cs_group).provide(:crm, :parent => Puppet::Provider::Crmsh) d
   # of actually doing the work.
   def create
     @property_hash = {
-      :name       => @resource[:name],
-      :ensure     => :present,
-      :primitives => @resource[:primitives]
+      name:       @resource[:name],
+      ensure:     :present,
+      primitives: @resource[:primitives]
     }
     @property_hash[:cib] = @resource[:cib] unless @resource[:cib].nil?
   end
@@ -63,9 +69,11 @@ Puppet::Type.type(:cs_group).provide(:crm, :parent => Puppet::Provider::Crmsh) d
   # we need to stop the group.
   def destroy
     debug('Stopping group before removing it')
-    crm('resource', 'stop', @resource[:name])
-    debug('Revmoving group')
-    crm('configure', 'delete', @resource[:name])
+    cmd = [command(:crm), 'resource', 'stop', @resource[:name]]
+    PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
+    debug('Removing group')
+    cmd = [command(:crm), 'configure', 'delete', @resource[:name]]
+    PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
     @property_hash.clear
   end
 
@@ -95,8 +103,8 @@ Puppet::Type.type(:cs_group).provide(:crm, :parent => Puppet::Provider::Crmsh) d
       Tempfile.open('puppet_crm_update') do |tmpfile|
         tmpfile.write(updated)
         tmpfile.flush
-        ENV['CIB_shadow'] = @resource[:cib]
-        crm('configure', 'load', 'update', tmpfile.path.to_s)
+        cmd = [command(:crm), 'configure', 'load', 'update', tmpfile.path.to_s]
+        PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
       end
     end
   end

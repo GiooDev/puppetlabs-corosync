@@ -54,22 +54,113 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
       }
     EOS
 
-    apply_manifest(pp, :catch_failures => true)
-    apply_manifest(pp, :catch_changes => true)
+    apply_manifest(pp, catch_failures: true)
+    apply_manifest(pp, catch_changes: true)
   end
 
   describe service('corosync') do
     it { is_expected.to be_running }
   end
 
-  it 'should create the resources' do
+  it 'creates the resources' do
     command = if fact('osfamily') == 'RedHat'
                 'pcs resource show'
               else
                 'crm_resource --list'
               end
     shell(command) do |r|
-      expect(r.stdout).to match(/pgsql.*pgsql/)
+      expect(r.stdout).to match(%r{pgsql.*pgsql})
+    end
+  end
+
+  it 'removes the target-role' do
+    pp = <<-EOS
+        cs_primitive { 'test_stop':
+          primitive_class => 'ocf',
+          primitive_type  => 'IPaddr2',
+          provided_by     => 'heartbeat',
+          parameters      => { 'ip' => '172.16.210.142', 'cidr_netmask' => '24' },
+          operations      => { 'monitor' => { 'interval' => '10s' } },
+        }
+    EOS
+    apply_manifest(pp, expect_changes: true)
+    apply_manifest(pp, catch_changes: true)
+
+    shell('crm_resource -r test_stop -m -p target-role -v Stopped')
+
+    apply_manifest(pp, expect_changes: true)
+    apply_manifest(pp, catch_changes: true)
+  end
+
+  it 'respects manage_target_role' do
+    pp = <<-EOS
+        cs_primitive { 'test_stop2':
+          primitive_class => 'ocf',
+          primitive_type  => 'IPaddr2',
+          provided_by     => 'heartbeat',
+          parameters      => { 'ip' => '172.16.210.142', 'cidr_netmask' => '24' },
+          operations      => { 'monitor' => { 'interval' => '10s' } },
+          manage_target_role => false,
+        }
+    EOS
+    apply_manifest(pp, expect_changes: true)
+    apply_manifest(pp, catch_changes: true)
+
+    shell('crm_resource -r test_stop2 -m -p target-role -v Stopped')
+
+    apply_manifest(pp, catch_changes: true)
+
+    pp = <<-EOS
+        cs_primitive { 'test_stop2':
+          primitive_class => 'ocf',
+          primitive_type  => 'IPaddr2',
+          provided_by     => 'heartbeat',
+          parameters      => { 'ip' => '172.16.210.142', 'cidr_netmask' => '24' },
+          operations      => { 'monitor' => { 'interval' => '10s' } },
+        }
+    EOS
+
+    apply_manifest(pp, expect_changes: true)
+    apply_manifest(pp, catch_changes: true)
+  end
+
+  it 'removes is-managed but not target-role' do
+    pp = <<-EOS
+        cs_primitive { 'test_md':
+          primitive_class => 'ocf',
+          primitive_type  => 'IPaddr2',
+          provided_by     => 'heartbeat',
+          parameters      => { 'ip' => '172.16.210.142', 'cidr_netmask' => '24' },
+          operations      => { 'monitor' => { 'interval' => '10s' } },
+          metadata        => {'is-managed' => 'false', 'target-role' => 'stopped'}
+        }
+    EOS
+    apply_manifest(pp, expect_changes: true)
+    apply_manifest(pp, catch_changes: true)
+
+    command = 'crm_resource -r test_md -q'
+    shell(command) do |r|
+      expect(r.stdout).to match(%r{is-managed.*false})
+      expect(r.stdout).to match(%r{target-role.*stopped})
+    end
+
+    pp = <<-EOS
+        cs_primitive { 'test_md':
+          primitive_class => 'ocf',
+          primitive_type  => 'IPaddr2',
+          provided_by     => 'heartbeat',
+          parameters      => { 'ip' => '172.16.210.142', 'cidr_netmask' => '24' },
+          operations      => { 'monitor' => { 'interval' => '10s' } },
+          manage_target_role => false,
+        }
+    EOS
+
+    apply_manifest(pp, expect_changes: true)
+    apply_manifest(pp, catch_changes: true)
+
+    shell(command) do |r|
+      expect(r.stdout).not_to match(%r{is-managed.*false})
+      expect(r.stdout).to match(%r{target-role.*stopped})
     end
   end
 end

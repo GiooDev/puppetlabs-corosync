@@ -1,7 +1,7 @@
 Puppet::Type.newtype(:cs_commit) do
   @doc = 'This type is an implementation detail. DO NOT use it directly'
 
-  feature :refreshable, 'The provider can execute the commit.', :methods => [:commit]
+  feature :refreshable, 'The provider can execute the commit.', methods: [:commit]
 
   newparam(:cib) do
     def insync?(_is)
@@ -24,7 +24,9 @@ Puppet::Type.newtype(:cs_commit) do
   end
 
   autorequire(:cs_shadow) do
-    [@parameters[:cib]]
+    autos = []
+    autos << @parameters[:cib].value if @parameters[:cib]
+    autos
   end
 
   if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '4.0') < 0
@@ -79,7 +81,7 @@ Puppet::Type.newtype(:cs_commit) do
 
   def resources_with_cib(resource_type)
     autos = []
-    catalog.resources.find_all { |r| r.is_a?(Puppet::Type.type(resource_type)) && r.should(:cib) == should(:cib) }.each do |r|
+    catalog.resources.select { |r| r.is_a?(Puppet::Type.type(resource_type)) && r.should(:cib) == should(:cib) }.each do |r|
       autos << r
     end
 

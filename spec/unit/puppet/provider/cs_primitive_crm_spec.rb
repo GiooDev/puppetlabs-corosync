@@ -41,7 +41,7 @@ describe Puppet::Type.type(:cs_primitive).provider(:crm) do
       if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
         Puppet::Util::SUIDManager.expects(:run_and_capture).with(%w(crm configure show xml)).at_least_once.returns([test_cib, 0])
       else
-        Puppet::Util::Execution.expects(:execute).with(%w(crm configure show xml)).at_least_once.returns(
+        Puppet::Util::Execution.expects(:execute).with(%w(crm configure show xml), failonfail: true, combine: true).at_least_once.returns(
           Puppet::Util::Execution::ProcessOutput.new(test_cib, 0)
         )
       end
@@ -50,7 +50,7 @@ describe Puppet::Type.type(:cs_primitive).provider(:crm) do
       # rubocop:enable Lint/UselessAssignment
     end
 
-    it 'should have an instance for each <primitive>' do
+    it 'has an instance for each <primitive>' do
       expect(instances.count).to eq(1)
     end
 
@@ -116,11 +116,12 @@ describe Puppet::Type.type(:cs_primitive).provider(:crm) do
   context 'when flushing' do
     let :resource do
       Puppet::Type.type(:cs_primitive).new(
-        :name => 'testResource',
-        :provider => :crm,
-        :primitive_class => 'ocf',
-        :provided_by => 'heartbeat',
-        :primitive_type => 'IPaddr2')
+        name: 'testResource',
+        provider: :crm,
+        primitive_class: 'ocf',
+        provided_by: 'heartbeat',
+        primitive_type: 'IPaddr2'
+      )
     end
 
     let :instance do
@@ -131,55 +132,55 @@ describe Puppet::Type.type(:cs_primitive).provider(:crm) do
 
     def expect_update(pattern)
       if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
-        Puppet::Util::SUIDManager.expects(:run_and_capture).with { |*args|
+        Puppet::Util::SUIDManager.expects(:run_and_capture).with do |*args|
           if args.slice(0..2) == %w(configure load update)
             expect(File.read(args[3])).to match(pattern)
           end
           true
-        }.at_least_once.returns(['', 0])
+        end.at_least_once.returns(['', 0])
       else
-        Puppet::Util::Execution.expects(:execute).with { |*args|
+        Puppet::Util::Execution.expects(:execute).with do |*args|
           if args.slice(0..2) == %w(configure load update)
             expect(File.read(args[3])).to match(pattern)
           end
           true
-        }.at_least_once.returns(
+        end.at_least_once.returns(
           Puppet::Util::Execution::ProcessOutput.new('', 0)
         )
       end
     end
 
     it 'can flush without changes' do
-      expect_update(//)
+      expect_update(%r{})
       instance.flush
     end
 
     it 'sets operations' do
       instance.operations = [{ 'monitor' => { 'interval' => '10s' } }]
-      expect_update(/op monitor interval=10s/)
+      expect_update(%r{op monitor interval=10s})
       instance.flush
     end
 
     it 'sets utilization' do
       instance.utilization = { 'waffles' => '5' }
-      expect_update(/utilization waffles=5/)
+      expect_update(%r{utilization waffles=5})
       instance.flush
     end
 
     it 'sets parameters' do
       instance.parameters = { 'fluffyness' => '12' }
-      expect_update(/params 'fluffyness=12'/)
+      expect_update(%r{params 'fluffyness=12'})
       instance.flush
     end
 
     it 'sets metadata' do
       instance.metadata = { 'target-role' => 'Started' }
-      expect_update(/meta target-role=Started/)
+      expect_update(%r{meta target-role=Started})
       instance.flush
     end
 
     it 'sets the primitive name and type' do
-      expect_update(/primitive testResource ocf:heartbeat:IPaddr2/)
+      expect_update(%r{primitive testResource ocf:heartbeat:IPaddr2})
       instance.flush
     end
   end

@@ -19,7 +19,7 @@ Puppet::Type.newtype(:cs_colocation) do
     isnamevar
   end
 
-  newproperty(:primitives, :array_matching => :all) do
+  newproperty(:primitives, array_matching: :all) do
     desc "At least two Pacemaker primitives to be located together. Order of primitives
       in colocation groups is important. In Pacemaker, a colocation of 2 primitives
       behaves different than a colocation between more than 2 primitives. Here the
@@ -41,7 +41,6 @@ Puppet::Type.newtype(:cs_colocation) do
     # arrays with at least 2 values.
     def should=(value)
       super
-      # rubocop:disable Style/GuardClause
       if value.is_a? Array
         # rubocop:enable Style/GuardClause
         if value.empty?
@@ -76,7 +75,9 @@ Puppet::Type.newtype(:cs_colocation) do
   end
 
   autorequire(:cs_shadow) do
-    [@parameters[:cib]]
+    autos = []
+    autos << @parameters[:cib].value if @parameters[:cib]
+    autos
   end
 
   autorequire(:service) do

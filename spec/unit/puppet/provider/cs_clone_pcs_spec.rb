@@ -28,7 +28,7 @@ describe Puppet::Type.type(:cs_clone).provider(:pcs) do
       if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
         Puppet::Util::SUIDManager.expects(:run_and_capture).with(%w(pcs cluster cib)).at_least_once.returns([test_cib, 0])
       else
-        Puppet::Util::Execution.expects(:execute).with(%w(pcs cluster cib), :failonfail => true, :combine => true).at_least_once.returns(
+        Puppet::Util::Execution.expects(:execute).with(%w(pcs cluster cib), failonfail: true, combine: true).at_least_once.returns(
           Puppet::Util::Execution::ProcessOutput.new(test_cib, 0)
         )
       end
@@ -37,7 +37,7 @@ describe Puppet::Type.type(:cs_clone).provider(:pcs) do
       # rubocop:enable Lint/UselessAssignment
     end
 
-    it 'should have an instance for each <clone>' do
+    it 'has an instance for each <clone>' do
       expect(instances.count).to eq(1)
     end
 
@@ -59,10 +59,11 @@ describe Puppet::Type.type(:cs_clone).provider(:pcs) do
   context 'when flushing' do
     let :resource do
       Puppet::Type.type(:cs_clone).new(
-        :name      => 'p_keystone',
-        :provider  => :pcs,
-        :primitive => 'p_keystone',
-        :ensure    => :present)
+        name:      'p_keystone',
+        provider:  :pcs,
+        primitive: 'p_keystone',
+        ensure:    :present
+      )
     end
 
     let :instance do
@@ -72,43 +73,43 @@ describe Puppet::Type.type(:cs_clone).provider(:pcs) do
     end
 
     it 'creates clone' do
-      expect_commands(/pcs resource clone p_keystone/)
+      expect_commands(%r{pcs resource clone p_keystone})
       instance.flush
     end
 
     it 'sets max clones' do
       instance.clone_max = 3
-      expect_commands(/clone-max=3/)
+      expect_commands(%r{clone-max=3})
       instance.flush
     end
 
     it 'sets max node clones' do
       instance.clone_node_max = 3
-      expect_commands(/clone-node-max=3/)
+      expect_commands(%r{clone-node-max=3})
       instance.flush
     end
 
     it 'sets notify_clones' do
       instance.notify_clones = :true
-      expect_commands(/notify=true/)
+      expect_commands(%r{notify=true})
       instance.flush
     end
 
     it 'sets globally unique' do
       instance.globally_unique = :true
-      expect_commands(/globally-unique=true/)
+      expect_commands(%r{globally-unique=true})
       instance.flush
     end
 
     it 'sets ordered' do
       instance.ordered = :true
-      expect_commands(/ordered=true/)
+      expect_commands(%r{ordered=true})
       instance.flush
     end
 
     it 'sets interleave' do
       instance.interleave = :true
-      expect_commands(/interleave=true/)
+      expect_commands(%r{interleave=true})
       instance.flush
     end
   end

@@ -1,12 +1,21 @@
-require Pathname.new(__FILE__).dirname.expand_path + 'cib_helper'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider'
+  require 'puppet_x/voxpupuli/corosync/provider/cib_helper'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider'
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/cib_helper'
+end
 
-class Puppet::Provider::Crmsh < Puppet::Provider::CibHelper
+class PuppetX::Voxpupuli::Corosync::Provider::Crmsh < PuppetX::Voxpupuli::Corosync::Provider::CibHelper
   # Yep, that's right we are parsing XML...FUN! (It really wasn't that bad)
   require 'rexml/document'
 
   initvars
-  commands :crm_attribute => 'crm_attribute'
-  commands :crm => 'crm'
+  commands crm_attribute: 'crm_attribute'
+  commands crm: 'crm'
 
   # Corosync takes a while to build the initial CIB configuration once the
   # service is started for the first time.  This provides us a way to wait

@@ -36,7 +36,7 @@ describe Puppet::Type.type(:cs_primitive).provider(:pcs) do
       if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
         Puppet::Util::SUIDManager.expects(:run_and_capture).with(%w(pcs cluster cib)).at_least_once.returns([test_cib, 0])
       else
-        Puppet::Util::Execution.expects(:execute).with(%w(pcs cluster cib), :failonfail => true, :combine => true).at_least_once.returns(
+        Puppet::Util::Execution.expects(:execute).with(%w(pcs cluster cib), failonfail: true, combine: true).at_least_once.returns(
           Puppet::Util::Execution::ProcessOutput.new(test_cib, 0)
         )
       end
@@ -45,7 +45,7 @@ describe Puppet::Type.type(:cs_primitive).provider(:pcs) do
       # rubocop:enable Lint/UselessAssignment
     end
 
-    it 'should have an instance for each <primitive>' do
+    it 'has an instance for each <primitive>' do
       expect(instances.count).to eq(1)
     end
 
@@ -127,7 +127,7 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
       if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
         Puppet::Util::SUIDManager.expects(:run_and_capture).with(%w(pcs cluster cib)).at_least_once.returns([test_cib, 0])
       else
-        Puppet::Util::Execution.expects(:execute).with(%w(pcs cluster cib), :failonfail => true, :combine => true).at_least_once.returns(
+        Puppet::Util::Execution.expects(:execute).with(%w(pcs cluster cib), failonfail: true, combine: true).at_least_once.returns(
           Puppet::Util::Execution::ProcessOutput.new(test_cib, 0)
         )
       end
@@ -142,12 +142,13 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
 
     let :resource do
       Puppet::Type.type(:cs_primitive).new(
-        :name => 'testResource',
-        :provider => :pcs,
-        :primitive_class => 'ocf',
-        :provided_by => 'heartbeat',
-        :operations => { 'monitor' => { 'interval' => '60s' } },
-        :primitive_type => 'IPaddr2')
+        name: 'testResource',
+        provider: :pcs,
+        primitive_class: 'ocf',
+        provided_by: 'heartbeat',
+        operations: { 'monitor' => { 'interval' => '60s' } },
+        primitive_type: 'IPaddr2'
+      )
     end
 
     let :instance do
@@ -169,45 +170,45 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
     end
 
     it 'can flush without changes' do
-      expect_commands(/pcs/)
+      expect_commands(%r{pcs})
       simple_instance.flush
     end
 
     it 'sets operations' do
       instance.operations = [{ 'monitor' => { 'interval' => '20s' } }]
       expect_commands([
-                        /^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op monitor interval=20s$/,
-                        /^pcs resource op remove testResource monitor interval=60s$/
+                        %r{^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op monitor interval=20s$},
+                        %r{^pcs resource op remove testResource monitor interval=60s$}
                       ])
       instance.flush
     end
 
     it 'do not remove default operations if explicitely set' do
       instance.operations = [{ 'monitor' => { 'interval' => '60s' } }]
-      expect_commands(/^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op monitor interval=60s$/)
+      expect_commands(%r{^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op monitor interval=60s$})
       instance.flush
     end
 
     it 'sets utilization' do
       instance.utilization = { 'waffles' => '5' }
-      expect_commands(/^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op .* utilization waffles=5$/)
+      expect_commands(%r{^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op .* utilization waffles=5$})
       instance.flush
     end
 
     it 'sets parameters' do
       instance.parameters = { 'fluffyness' => '12' }
-      expect_commands(/^pcs resource create --force testResource ocf:heartbeat:IPaddr2 fluffyness=12 op.*/)
+      expect_commands(%r{^pcs resource create --force testResource ocf:heartbeat:IPaddr2 fluffyness=12 op.*})
       instance.flush
     end
 
     it 'sets metadata' do
       instance.metadata = { 'target-role' => 'Started' }
-      expect_commands(/^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op .* meta target-role=Started$/)
+      expect_commands(%r{^pcs resource create --force testResource ocf:heartbeat:IPaddr2 op .* meta target-role=Started$})
       instance.flush
     end
 
     it 'sets the primitive name and type' do
-      expect_commands(/^pcs resource create --force testResource ocf:heartbeat:IPaddr2/)
+      expect_commands(%r{^pcs resource create --force testResource ocf:heartbeat:IPaddr2})
       instance.flush
     end
 
@@ -217,9 +218,9 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
         { 'monitor2' => { 'interval' => '20s' } }
       ]
       expect_commands([
-                        /^pcs resource op remove example_vip_with_op monitor interval=10s$/,
-                        /^pcs resource op remove example_vip_with_op monitor3 interval=30s$/,
-                        /^pcs resource update example_vip_with_op cidr_netmask=24 ip=172.31.110.68 op monitor interval=20s op monitor2 interval=20s/
+                        %r{^pcs resource op remove example_vip_with_op monitor interval=10s$},
+                        %r{^pcs resource op remove example_vip_with_op monitor3 interval=30s$},
+                        %r{^pcs resource update example_vip_with_op cidr_netmask=24 ip=172.31.110.68 op monitor interval=20s op monitor2 interval=20s}
                       ])
       vip_op_instance.flush
     end
@@ -227,10 +228,10 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
     it "sets a primitive_class parameter corresponding to the <primitive>'s class attribute" do
       vip_instance.primitive_class = 'stonith'
       expect_commands([
-                        /^pcs resource unclone example_vip$/,
-                        /^pcs resource delete --force example_vip$/,
-                        /^pcs resource create --force example_vip stonith:heartbeat:IPaddr2/,
-                        /^pcs resource op remove example_vip monitor interval=60s$/
+                        %r{^pcs resource unclone example_vip$},
+                        %r{^pcs resource delete --force example_vip$},
+                        %r{^pcs resource create --force example_vip stonith:heartbeat:IPaddr2},
+                        %r{^pcs resource op remove example_vip monitor interval=60s$}
                       ])
       vip_instance.flush
     end
@@ -238,10 +239,10 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
     it "sets a provided_by parameter corresponding to the <primitive>'s class attribute" do
       vip_instance.provided_by = 'voxpupuli'
       expect_commands([
-                        /^pcs resource unclone example_vip$/,
-                        /^pcs resource delete --force example_vip$/,
-                        /^pcs resource create --force example_vip ocf:voxpupuli:IPaddr2/,
-                        /^pcs resource op remove example_vip monitor interval=60s$/
+                        %r{^pcs resource unclone example_vip$},
+                        %r{^pcs resource delete --force example_vip$},
+                        %r{^pcs resource create --force example_vip ocf:voxpupuli:IPaddr2},
+                        %r{^pcs resource op remove example_vip monitor interval=60s$}
                       ])
       vip_instance.flush
     end
@@ -249,10 +250,10 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
     it "sets an primitive_type parameter corresponding to the <primitive>'s type attribute" do
       vip_instance.primitive_type = 'IPaddr3'
       expect_commands([
-                        /^pcs resource unclone example_vip$/,
-                        /^pcs resource delete --force example_vip$/,
-                        /^pcs resource create --force example_vip ocf:heartbeat:IPaddr3/,
-                        /^pcs resource op remove example_vip monitor interval=60s$/
+                        %r{^pcs resource unclone example_vip$},
+                        %r{^pcs resource delete --force example_vip$},
+                        %r{^pcs resource create --force example_vip ocf:heartbeat:IPaddr3},
+                        %r{^pcs resource op remove example_vip monitor interval=60s$}
                       ])
       vip_instance.flush
     end
@@ -262,10 +263,10 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
       vip_instance.provided_by = nil
       vip_instance.primitive_type = 'httpd'
       expect_commands([
-                        /^pcs resource unclone example_vip$/,
-                        /^pcs resource delete --force example_vip$/,
-                        /^pcs resource create --force example_vip systemd:httpd/,
-                        /^pcs resource op remove example_vip monitor interval=60s$/
+                        %r{^pcs resource unclone example_vip$},
+                        %r{^pcs resource delete --force example_vip$},
+                        %r{^pcs resource create --force example_vip systemd:httpd},
+                        %r{^pcs resource op remove example_vip monitor interval=60s$}
                       ])
       vip_instance.flush
     end
@@ -273,10 +274,10 @@ h           <primitive class="ocf" id="example_vip_with_op" provider="heartbeat"
     it "sets an provided_by parameter corresponding to the <primitive>'s provider attribute" do
       vip_instance.provided_by = 'inuits'
       expect_commands([
-                        /^pcs resource unclone example_vip$/,
-                        /^pcs resource delete --force example_vip$/,
-                        /^pcs resource create --force example_vip/,
-                        /^pcs resource op remove example_vip monitor interval=60s$/
+                        %r{^pcs resource unclone example_vip$},
+                        %r{^pcs resource delete --force example_vip$},
+                        %r{^pcs resource create --force example_vip},
+                        %r{^pcs resource op remove example_vip monitor interval=60s$}
                       ])
       vip_instance.flush
     end

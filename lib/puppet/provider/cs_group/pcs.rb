@@ -1,13 +1,19 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'pacemaker'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/pcs'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/pcs'
+end
 
-Puppet::Type.type(:cs_group).provide(:pcs, :parent => Puppet::Provider::Pacemaker) do
+Puppet::Type.type(:cs_group).provide(:pcs, parent: PuppetX::Voxpupuli::Corosync::Provider::Pcs) do
   desc 'Provider to add, delete, manipulate primitive groups.'
 
-  defaultfor :operatingsystem => [:fedora, :centos, :redhat]
+  defaultfor operatingsystem: [:fedora, :centos, :redhat]
 
   # Path to the pcs binary for interacting with the cluster configuration.
-  commands :pcs => '/usr/sbin/pcs'
+  commands pcs: '/usr/sbin/pcs'
 
   def self.instances
     block_until_ready
@@ -15,12 +21,12 @@ Puppet::Type.type(:cs_group).provide(:pcs, :parent => Puppet::Provider::Pacemake
     instances = []
 
     cmd = [command(:pcs), 'cluster', 'cib']
-    raw, = Puppet::Provider::Pacemaker.run_command_in_cib(cmd)
+    raw, = PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd)
     doc = REXML::Document.new(raw)
 
     REXML::XPath.each(doc, '//group') do |e|
       items = e.attributes
-      group = { :name => items['id'].to_sym }
+      group = { name: items['id'].to_sym }
 
       primitives = []
 
@@ -31,11 +37,11 @@ Puppet::Type.type(:cs_group).provide(:pcs, :parent => Puppet::Provider::Pacemake
       end
 
       group_instance = {
-        :name       => group[:name],
-        :ensure     => :present,
-        :primitives => primitives,
-        :provider   => name,
-        :new        => false
+        name:       group[:name],
+        ensure:     :present,
+        primitives: primitives,
+        provider:   name,
+        new:        false
       }
       instances << new(group_instance)
     end
@@ -46,10 +52,10 @@ Puppet::Type.type(:cs_group).provide(:pcs, :parent => Puppet::Provider::Pacemake
   # of actually doing the work.
   def create
     @property_hash = {
-      :name       => @resource[:name],
-      :ensure     => :present,
-      :primitives => @resource[:primitives],
-      :new        => true
+      name:       @resource[:name],
+      ensure:     :present,
+      primitives: @resource[:primitives],
+      new:        true
     }
     @property_hash[:cib] = @resource[:cib] unless @resource[:cib].nil?
   end
@@ -58,7 +64,7 @@ Puppet::Type.type(:cs_group).provide(:pcs, :parent => Puppet::Provider::Pacemake
   # we need to stop the group.
   def destroy
     debug('Removing group')
-    Puppet::Provider::Pacemaker.run_command_in_cib([command(:pcs), 'resource', 'ungroup', @property_hash[:name]], @resource[:cib])
+    PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib([command(:pcs), 'resource', 'ungroup', @property_hash[:name]], @resource[:cib])
     @property_hash.clear
   end
 
@@ -84,12 +90,12 @@ Puppet::Type.type(:cs_group).provide(:pcs, :parent => Puppet::Provider::Pacemake
     unless @property_hash.empty?
       if @property_hash[:new] == false
         debug('Removing group')
-        Puppet::Provider::Pacemaker.run_command_in_cib([command(:pcs), 'resource', 'ungroup', @property_hash[:name]], @resource[:cib])
+        PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib([command(:pcs), 'resource', 'ungroup', @property_hash[:name]], @resource[:cib])
       end
 
       cmd = [command(:pcs), 'resource', 'group', 'add', (@property_hash[:name]).to_s]
       cmd += @property_hash[:primitives]
-      Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+      PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
     end
   end
 end

@@ -1,18 +1,24 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'pacemaker'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/pcs'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/pcs'
+end
 
-Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemaker) do
+Puppet::Type.type(:cs_order).provide(:pcs, parent: PuppetX::Voxpupuli::Corosync::Provider::Pcs) do
   desc 'Specific provider for a rather specific type since I currently have no plan to
         abstract corosync/pacemaker vs. keepalived. This provider will check the state
         of current primitive start orders on the system; add, delete, or adjust various
         aspects.'
 
-  defaultfor :operatingsystem => [:fedora, :centos, :redhat]
+  defaultfor operatingsystem: [:fedora, :centos, :redhat]
 
   has_feature :kindness
 
   # Path to the pcs binary for interacting with the cluster configuration.
-  commands :pcs => 'pcs'
+  commands pcs: 'pcs'
 
   mk_resource_methods
 
@@ -22,7 +28,7 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
     instances = []
 
     cmd = [command(:pcs), 'cluster', 'cib']
-    raw, = Puppet::Provider::Pacemaker.run_command_in_cib(cmd)
+    raw, = PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd)
     doc = REXML::Document.new(raw)
 
     constraints = doc.root.elements['configuration'].elements['constraints']
@@ -60,15 +66,15 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
                       end
 
         order_instance = {
-          :name        => items['id'],
-          :ensure      => :present,
-          :first       => first,
-          :second      => second,
-          :score       => score,
-          :kind        => kind,
-          :symmetrical => symmetrical,
-          :provider    => name,
-          :new         => false
+          name:        items['id'],
+          ensure:      :present,
+          first:       first,
+          second:      second,
+          score:       score,
+          kind:        kind,
+          symmetrical: symmetrical,
+          provider:    name,
+          new:         false
         }
         instances << new(order_instance)
       end
@@ -80,14 +86,14 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
   # of actually doing the work.
   def create
     @property_hash = {
-      :name        => @resource[:name],
-      :ensure      => :present,
-      :first       => @resource[:first],
-      :second      => @resource[:second],
-      :score       => @resource[:score],
-      :kind        => @resource[:kind],
-      :symmetrical => @resource[:symmetrical],
-      :new         => true
+      name:        @resource[:name],
+      ensure:      :present,
+      first:       @resource[:first],
+      second:      @resource[:second],
+      score:       @resource[:score],
+      kind:        @resource[:kind],
+      symmetrical: @resource[:symmetrical],
+      new:         true
     }
   end
 
@@ -95,7 +101,7 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
   def destroy
     debug('Removing order directive')
     cmd = [command(:pcs), 'constraint', 'remove', @resource[:name]]
-    Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+    PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
     @property_hash.clear
   end
 
@@ -108,7 +114,7 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
       if @property_hash[:new] == false
         debug('Removing order directive')
         cmd = [command(:pcs), 'constraint', 'remove', @resource[:name]]
-        Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+        PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
       end
 
       cmd = [command(:pcs), 'constraint', 'order']
@@ -123,7 +129,7 @@ Puppet::Type.type(:cs_order).provide(:pcs, :parent => Puppet::Provider::Pacemake
       cmd << "kind=#{@property_hash[:kind]}"
       cmd << "id=#{@property_hash[:name]}"
       cmd << "symmetrical=#{@property_hash[:symmetrical]}"
-      Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+      PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
     end
   end
 end

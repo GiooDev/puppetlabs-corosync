@@ -1,13 +1,19 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'crmsh'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/crmsh'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/crmsh'
+end
 
-Puppet::Type.type(:cs_clone).provide(:crm, :parent => Puppet::Provider::Crmsh) do
+Puppet::Type.type(:cs_clone).provide(:crm, parent: PuppetX::Voxpupuli::Corosync::Provider::Crmsh) do
   desc 'Provider to add, delete, manipulate primitive clones.'
 
   # Path to the crm binary for interacting with the cluster configuration.
   # Decided to just go with relative.
-  commands :crm => 'crm'
-  commands :crm_attribute => 'crm_attribute'
+  commands crm: 'crm'
+  commands crm_attribute: 'crm_attribute'
 
   def self.instances
     block_until_ready
@@ -15,16 +21,7 @@ Puppet::Type.type(:cs_clone).provide(:crm, :parent => Puppet::Provider::Crmsh) d
     instances = []
 
     cmd = [command(:crm), 'configure', 'show', 'xml']
-    if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
-      # rubocop:disable Lint/UselessAssignment
-      raw, status = Puppet::Util::SUIDManager.run_and_capture(cmd)
-      # rubocop:enable Lint/UselessAssignment
-    else
-      raw = Puppet::Util::Execution.execute(cmd)
-      # rubocop:disable Lint/UselessAssignment
-      status = raw.exitstatus
-      # rubocop:enable Lint/UselessAssignment
-    end
+    raw, = PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd)
     doc = REXML::Document.new(raw)
 
     doc.root.elements['configuration'].elements['resources'].each_element('clone') do |e|
@@ -32,16 +29,16 @@ Puppet::Type.type(:cs_clone).provide(:crm, :parent => Puppet::Provider::Crmsh) d
       items = nvpairs_to_hash(e.elements['meta_attributes'])
 
       clone_instance = {
-        :name            => e.attributes['id'],
-        :ensure          => :present,
-        :primitive       => primitive_id,
-        :clone_max       => items['clone-max'],
-        :clone_node_max  => items['clone-node-max'],
-        :notify_clones   => items['notify'],
-        :globally_unique => items['globally-unique'],
-        :ordered         => items['ordered'],
-        :interleave      => items['interleave'],
-        :existing_resource => :true
+        name:              e.attributes['id'],
+        ensure:            :present,
+        primitive:         primitive_id,
+        clone_max:         items['clone-max'],
+        clone_node_max:    items['clone-node-max'],
+        notify_clones:     items['notify'],
+        globally_unique:   items['globally-unique'],
+        ordered:           items['ordered'],
+        interleave:        items['interleave'],
+        existing_resource: :true
       }
       instances << new(clone_instance)
     end
@@ -52,24 +49,25 @@ Puppet::Type.type(:cs_clone).provide(:crm, :parent => Puppet::Provider::Crmsh) d
   # of actually doing the work.
   def create
     @property_hash = {
-      :name       => @resource[:name],
-      :ensure     => :present,
-      :primitive       => @resource[:primitive],
-      :clone_max       => @resource[:clone_max],
-      :clone_node_max  => @resource[:clone_node_max],
-      :notify_clones   => @resource[:notify_clones],
-      :globally_unique => @resource[:globally_unique],
-      :ordered         => @resource[:ordered],
-      :interleave      => @resource[:interleave],
-      :cib             => @resource[:cib],
-      :existing_resource => :false
+      name:              @resource[:name],
+      ensure:            :present,
+      primitive:         @resource[:primitive],
+      clone_max:         @resource[:clone_max],
+      clone_node_max:    @resource[:clone_node_max],
+      notify_clones:     @resource[:notify_clones],
+      globally_unique:   @resource[:globally_unique],
+      ordered:           @resource[:ordered],
+      interleave:        @resource[:interleave],
+      cib:               @resource[:cib],
+      existing_resource: :false
     }
   end
 
   # Unlike create we actually immediately delete the item.
   def destroy
     debug('Removing clone')
-    crm('configure', 'delete', @resource[:name])
+    cmd = [command(:crm), 'configure', 'delete', @resource[:name]]
+    PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
     @property_hash.clear
   end
 
@@ -174,8 +172,8 @@ Puppet::Type.type(:cs_clone).provide(:crm, :parent => Puppet::Provider::Crmsh) d
       Tempfile.open('puppet_crm_update') do |tmpfile|
         tmpfile.write(updated)
         tmpfile.flush
-        ENV['CIB_shadow'] = @resource[:cib]
-        crm('configure', 'load', 'update', tmpfile.path.to_s)
+        cmd = [command(:crm), 'configure', 'load', 'update', tmpfile.path.to_s]
+        PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
       end
     end
   end

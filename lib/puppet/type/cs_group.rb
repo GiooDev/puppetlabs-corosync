@@ -16,7 +16,7 @@ Puppet::Type.newtype(:cs_group) do
     isnamevar
   end
 
-  newproperty(:primitives, :array_matching => :all) do
+  newproperty(:primitives, array_matching: :all) do
     desc "An array of primitives to have in this group.  Must be listed in the
       order that you wish them to start."
 
@@ -43,7 +43,9 @@ Puppet::Type.newtype(:cs_group) do
   end
 
   autorequire(:cs_shadow) do
-    [@parameters[:cib]]
+    autos = []
+    autos << @parameters[:cib].value if @parameters[:cib]
+    autos
   end
 
   autorequire(:service) do

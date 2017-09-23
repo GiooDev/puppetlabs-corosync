@@ -25,7 +25,7 @@ describe Puppet::Type.type(:cs_order).provider(:crm) do
     if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
       Puppet::Util::SUIDManager.expects(:run_and_capture).with(%w(crm configure show xml)).at_least_once.returns([test_cib, 0])
     else
-      Puppet::Util::Execution.expects(:execute).with(%w(crm configure show xml), :failonfail => true, :combine => true).at_least_once.returns(
+      Puppet::Util::Execution.expects(:execute).with(%w(crm configure show xml), failonfail: true, combine: true).at_least_once.returns(
         Puppet::Util::Execution::ProcessOutput.new(test_cib, 0)
       )
     end
@@ -33,7 +33,7 @@ describe Puppet::Type.type(:cs_order).provider(:crm) do
   end
 
   context 'when getting instances' do
-    it 'should have an instance for each <rsc_order>' do
+    it 'has an instance for each <rsc_order>' do
       expect(instances.count).to eq(2)
     end
 
@@ -46,7 +46,7 @@ describe Puppet::Type.type(:cs_order).provider(:crm) do
         expect(instance).to be_a_kind_of(described_class)
       end
 
-      it "should be named by the <primitive>'s id attribute" do
+      it "is named by the <primitive>'s id attribute" do
         expect(instance.name).to eq('nul-messagebus_before_nul-interface-2')
       end
     end
@@ -55,7 +55,7 @@ describe Puppet::Type.type(:cs_order).provider(:crm) do
         instances.first
       end
 
-      it 'should have attributes' do
+      it 'has attributes' do
         expect(instance.first).to eq('nul-messagebus:start')
         expect(instance.second).to eq('nul-interface-2:start')
         expect(instance.kind).to eq(:absent)
@@ -68,7 +68,7 @@ describe Puppet::Type.type(:cs_order).provider(:crm) do
         instances[1]
       end
 
-      it 'should have attributes' do
+      it 'has attributes' do
         expect(instance.first).to eq('nul2-messagebus:promote')
         expect(instance.second).to eq('nul-interface-2b:start')
         expect(instance.kind).to eq(:absent)

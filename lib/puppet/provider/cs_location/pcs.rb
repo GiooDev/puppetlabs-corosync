@@ -1,16 +1,22 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'pacemaker'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/pcs'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/pcs'
+end
 
-Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacemaker) do
+Puppet::Type.type(:cs_location).provide(:pcs, parent: PuppetX::Voxpupuli::Corosync::Provider::Pcs) do
   desc 'Specific provider for a rather specific type since I currently have no plan to
         abstract corosync/pacemaker vs. keepalived.  This provider will check the state
         of current primitive locations on the system; add, delete, or adjust various
         aspects.'
 
-  defaultfor :operatingsystem => [:fedora, :centos, :redhat]
+  defaultfor operatingsystem: [:fedora, :centos, :redhat]
   has_feature :discovery
 
-  commands :pcs => 'pcs'
+  commands pcs: 'pcs'
 
   mk_resource_methods
 
@@ -31,13 +37,13 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
   # suitable for creating a new provider instance.
   def self.element_to_hash(e)
     hash = {
-      :name       => e.attributes['id'],
-      :ensure     => :present,
-      :primitive  => e.attributes['rsc'],
-      :node_name  => e.attributes['node'],
-      :score      => e.attributes['score'],
-      :rule       => rules_to_hash(e.elements['rule']),
-      :provider   => name
+      name:      e.attributes['id'],
+      ensure:    :present,
+      primitive: e.attributes['rsc'],
+      node_name: e.attributes['node'],
+      score:     e.attributes['score'],
+      rule:      rules_to_hash(e.elements['rule']),
+      provider:  name
     }
 
     hash
@@ -49,7 +55,7 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
     instances = []
 
     cmd = [command(:pcs), 'cluster', 'cib']
-    raw, = Puppet::Provider::Pacemaker.run_command_in_cib(cmd)
+    raw, = PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd)
     doc = REXML::Document.new(raw)
 
     constraints = doc.root.elements['configuration'].elements['constraints']
@@ -58,14 +64,14 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
         items = e.attributes
 
         location_instance = {
-          :name               => items['id'],
-          :ensure             => :present,
-          :primitive          => items['rsc'],
-          :node_name          => items['node'],
-          :score              => items['score'],
-          :resource_discovery => items['resource-discovery'],
-          :rule               => items['rule'],
-          :provider           => name
+          name:               items['id'],
+          ensure:             :present,
+          primitive:          items['rsc'],
+          node_name:          items['node'],
+          score:              items['score'],
+          resource_discovery: items['resource-discovery'],
+          rule:               items['rule'],
+          provider:           name
         }
         instances << new(location_instance)
       end
@@ -77,14 +83,14 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
   # of actually doing the work.
   def create
     @property_hash = {
-      :name               => @resource[:name],
-      :ensure             => :present,
-      :primitive          => @resource[:primitive],
-      :node_name          => @resource[:node_name],
-      :score              => @resource[:score],
-      :resource_discovery => @resource[:resource_discovery],
-      :cib                => @resource[:cib],
-      :rule               => @resource[:rule]
+      name:               @resource[:name],
+      ensure:             :present,
+      primitive:          @resource[:primitive],
+      node_name:          @resource[:node_name],
+      score:              @resource[:score],
+      resource_discovery: @resource[:resource_discovery],
+      cib:                @resource[:cib],
+      rule:               @resource[:rule]
     }
   end
 
@@ -92,7 +98,7 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
   def destroy
     debug('Removing location')
     cmd = [command(:pcs), 'constraint', 'remove', @resource[:name]]
-    Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+    PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
     @property_hash.clear
   end
 
@@ -104,10 +110,10 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
     unless @property_hash.empty?
       # Remove existing location
       cmd = ['pcs', 'constraint', 'resource', 'remove', @resource[:name]]
-      Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib], false)
+      PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib], false)
       cmd = ['pcs', 'constraint', 'location', 'add', @property_hash[:name], @property_hash[:primitive], @property_hash[:node_name], @property_hash[:score]]
       cmd << "resource-discovery=#{@property_hash[:resource_discovery]}" unless @property_hash[:resource_discovery].nil?
-      Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+      PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
 
       unless @property_hash[:rule].nil?
         score_param = [] # default value: score=INFINITY
@@ -120,7 +126,7 @@ Puppet::Type.type(:cs_location).provide(:pcs, :parent => Puppet::Provider::Pacem
           end
         end
         cmd_rule = [command(:pcs), 'constraint', 'location', @property_hash[:primitive], 'rule', score_param, rule_params]
-        Puppet::Provider::Pacemaker.run_command_in_cib(cmd_rule, @resource[:cib])
+        PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd_rule, @resource[:cib])
       end
     end
   end

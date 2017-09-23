@@ -1,7 +1,13 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'pacemaker'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/pcs'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/pcs'
+end
 
-Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pacemaker) do
+Puppet::Type.type(:cs_primitive).provide(:pcs, parent: PuppetX::Voxpupuli::Corosync::Provider::Pcs) do
   desc 'Specific provider for a rather specific type since I currently have no
         plan to abstract corosync/pacemaker vs. keepalived.  Primitives in
         Corosync are the thing we desire to monitor; websites, ipaddresses,
@@ -10,47 +16,47 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
         operations and parameters.  A hash is used instead of constucting a
         better model since these values can be almost anything.'
 
-  commands :pcs => 'pcs'
+  commands pcs: 'pcs'
 
   mk_resource_methods
 
-  defaultfor :operatingsystem => [:fedora, :centos, :redhat]
+  defaultfor operatingsystem: [:fedora, :centos, :redhat]
 
   # given an XML element (a <primitive> from cibadmin), produce a hash suitible
   # for creating a new provider instance.
   def self.element_to_hash(e)
     hash = {
-      :primitive_class          => e.attributes['class'],
-      :primitive_type           => e.attributes['type'],
-      :provided_by              => e.attributes['provider'],
-      :name                     => e.attributes['id'].to_sym,
-      :ensure                   => :present,
-      :provider                 => name,
-      :parameters               => nvpairs_to_hash(e.elements['instance_attributes']),
-      :operations               => [],
-      :utilization              => nvpairs_to_hash(e.elements['utilization']),
-      :metadata                 => nvpairs_to_hash(e.elements['meta_attributes']),
-      :ms_metadata              => {},
-      :promotable               => :false,
-      :existing_resource        => :true,
-      :existing_primitive_class => e.attributes['class'],
-      :existing_primitive_type  => e.attributes['type'],
-      :existing_promotable      => :false,
-      :existing_provided_by     => e.attributes['provider'],
-      :existing_metadata        => nvpairs_to_hash(e.elements['meta_attributes']),
-      :existing_ms_metadata     => {},
-      :existing_operations      => []
+      primitive_class:          e.attributes['class'],
+      primitive_type:           e.attributes['type'],
+      provided_by:              e.attributes['provider'],
+      name:                     e.attributes['id'].to_sym,
+      ensure:                   :present,
+      provider:                 name,
+      parameters:               nvpairs_to_hash(e.elements['instance_attributes']),
+      operations:               [],
+      utilization:              nvpairs_to_hash(e.elements['utilization']),
+      metadata:                 nvpairs_to_hash(e.elements['meta_attributes']),
+      ms_metadata:              {},
+      promotable:               :false,
+      existing_resource:        :true,
+      existing_primitive_class: e.attributes['class'],
+      existing_primitive_type:  e.attributes['type'],
+      existing_promotable:      :false,
+      existing_provided_by:     e.attributes['provider'],
+      existing_metadata:        nvpairs_to_hash(e.elements['meta_attributes']),
+      existing_ms_metadata:     {},
+      existing_operations:      []
     }
 
     operations = e.elements['operations']
     unless operations.nil?
       operations.each_element do |o|
-        valids = o.attributes.reject do |k, _v| k == 'id' end
-        name = valids['name']
+        valids = o.attributes.reject { |k, _v| k == 'id' }
+        name = valids['name'].to_s
         operation = {}
         operation[name] = {}
         valids.each do |k, v|
-          operation[name][k] = v if k != 'name'
+          operation[name][k] = v.to_s if k != 'name'
         end
         unless o.elements['instance_attributes'].nil?
           o.elements['instance_attributes'].each_element do |i|
@@ -81,7 +87,7 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
     instances = []
 
     cmd = [command(:pcs), 'cluster', 'cib']
-    raw, = Puppet::Provider::Pacemaker.run_command_in_cib(cmd)
+    raw, = PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd)
     doc = REXML::Document.new(raw)
 
     REXML::XPath.each(doc, '//primitive') do |e|
@@ -96,13 +102,13 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
   # updates or create a resource, so we flag the resources with that parameter
   def create
     @property_hash = {
-      :name              => @resource[:name],
-      :ensure            => :present,
-      :primitive_class   => @resource[:primitive_class],
-      :provided_by       => @resource[:provided_by],
-      :primitive_type    => @resource[:primitive_type],
-      :promotable        => @resource[:promotable],
-      :existing_resource => :false
+      name:              @resource[:name],
+      ensure:            :present,
+      primitive_class:   @resource[:primitive_class],
+      provided_by:       @resource[:provided_by],
+      primitive_type:    @resource[:primitive_type],
+      promotable:        @resource[:promotable],
+      existing_resource: :false
     }
     @property_hash[:parameters] = @resource[:parameters] unless @resource[:parameters].nil?
     @property_hash[:operations] = @resource[:operations] unless @resource[:operations].nil?
@@ -115,7 +121,7 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
   # Unlike create we actually immediately delete the item.
   def destroy
     debug('Removing primitive')
-    Puppet::Provider::Pacemaker.run_command_in_cib([command(:pcs), 'resource', 'delete', '--force', @resource[:name]], @resource[:cib])
+    PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib([command(:pcs), 'resource', 'delete', '--force', @resource[:name]], @resource[:cib])
     @property_hash.clear
   end
 
@@ -125,7 +131,7 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
       @property_hash[:promotable] = should
     when :false
       @property_hash[:promotable] = should
-      Puppet::Provider::Pacemaker.run_command_in_cib([command(:pcs), 'resource', 'delete', "ms_#{@resource[:name]}"], @resource[:cib])
+      PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib([command(:pcs), 'resource', 'delete', "ms_#{@resource[:name]}"], @resource[:cib])
     end
   end
 
@@ -169,7 +175,15 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
           utilization << "#{k}=#{v}"
         end
       end
-      unless @property_hash[:metadata].empty?
+
+      if @resource && @resource.class.name == :cs_primitive && !@resource.manage_target_role?
+        @property_hash[:metadata].delete('target-role')
+        @property_hash[:ms_metadata].delete('target-role') if @property_hash[:ms_metadata]
+        @property_hash[:existing_ms_metadata].delete('target-role') if @property_hash[:existing_ms_metadata]
+        @property_hash[:existing_metadata].delete('target-role') if @property_hash[:existing_metadata]
+      end
+
+      unless @property_hash[:metadata].empty? && @property_hash[:existing_metadata].empty?
         metadatas = ['meta']
         @property_hash[:metadata].each_pair do |k, v|
           metadatas << "#{k}=#{v}"
@@ -188,8 +202,8 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
         existing_ressource_type << (@property_hash[:existing_primitive_type]).to_s
         if existing_ressource_type != ressource_type
           debug('Removing primitive')
-          Puppet::Provider::Pacemaker.run_command_in_cib([command(:pcs), 'resource', 'unclone', (@property_hash[:name]).to_s], @resource[:cib], false)
-          Puppet::Provider::Pacemaker.run_command_in_cib([command(:pcs), 'resource', 'delete', '--force', (@property_hash[:name]).to_s], @resource[:cib])
+          PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib([command(:pcs), 'resource', 'unclone', (@property_hash[:name]).to_s], @resource[:cib], false)
+          PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib([command(:pcs), 'resource', 'delete', '--force', (@property_hash[:name]).to_s], @resource[:cib])
           force_reinstall = :true
         end
       end
@@ -205,7 +219,7 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
         cmd += operations unless operations.nil?
         cmd += utilization unless utilization.nil?
         cmd += metadatas unless metadatas.nil?
-        Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+        PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
         # if we are using a master/slave resource, prepend ms_ before its name
         # and declare it as a master/slave resource
         if @property_hash[:promotable] == :true
@@ -218,17 +232,17 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
               cmd << "#{k}=#{v}"
             end
           end
-          Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+          PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
         end
         # try to remove the default monitor operation
         default_op = { 'monitor' => { 'interval' => '60s' } }
         unless @property_hash[:operations].include?(default_op)
           cmd = [command(:pcs), 'resource', 'op', 'remove', (@property_hash[:name]).to_s, 'monitor', 'interval=60s']
-          Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib], false)
+          PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib], false)
         end
       else
         if @property_hash[:promotable] == :false && @property_hash[:existing_promotable] == :true
-          Puppet::Provider::Pacemaker.run_command_in_cib([command(:pcs), 'resource', 'delete', '--force', "ms_#{@property_hash[:name]}"], @resource[:cib])
+          PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib([command(:pcs), 'resource', 'delete', '--force', "ms_#{@property_hash[:name]}"], @resource[:cib])
         end
         @property_hash[:existing_operations].reject { |op| @property_hash[:operations].include?(op) }.each do |o|
           cmd = [command(:pcs), 'resource', 'op', 'remove', (@property_hash[:name]).to_s]
@@ -236,18 +250,18 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
           o.values.first.each_pair do |k, v|
             cmd << "#{k}=#{v}"
           end
-          Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+          PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
         end
         cmd = [command(:pcs), 'resource', 'update', (@property_hash[:name]).to_s]
         cmd += parameters unless parameters.nil?
         cmd += operations unless operations.nil?
         cmd += utilization unless utilization.nil?
         cmd += metadatas unless metadatas.nil?
-        Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+        PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
         if @property_hash[:promotable] == :true
           cmd = [command(:pcs), 'resource', 'update', "ms_#{@property_hash[:name]}", (@property_hash[:name]).to_s]
           # rubocop:disable Metrics/BlockNesting
-          unless @property_hash[:ms_metadata].empty?
+          unless @property_hash[:ms_metadata].empty? && @property_hash[:existing_ms_metadata].empty?
             # rubocop:enable Metrics/BlockNesting
             cmd << 'meta'
             @property_hash[:ms_metadata].each_pair do |k, v|
@@ -257,7 +271,7 @@ Puppet::Type.type(:cs_primitive).provide(:pcs, :parent => Puppet::Provider::Pace
               cmd << "#{k}="
             end
           end
-          Puppet::Provider::Pacemaker.run_command_in_cib(cmd, @resource[:cib])
+          PuppetX::Voxpupuli::Corosync::Provider::Pcs.run_command_in_cib(cmd, @resource[:cib])
         end
       end
     end

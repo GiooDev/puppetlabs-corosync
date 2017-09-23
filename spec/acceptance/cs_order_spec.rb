@@ -54,47 +54,47 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
       }
     EOS
 
-    apply_manifest(pp, :catch_failures => true)
-    apply_manifest(pp, :catch_changes => true)
+    apply_manifest(pp, catch_failures: true)
+    apply_manifest(pp, catch_changes: true)
   end
 
   describe service('corosync') do
     it { is_expected.to be_running }
   end
 
-  it 'should create a simple order constraint' do
+  it 'creates a simple order constraint' do
     pp = <<-EOS
       cs_order { 'first_then_two':
         first  => 'first_vip',
         second  => 'second_vip',
       }
     EOS
-    apply_manifest(pp, :debug => true, :catch_failures => true)
-    apply_manifest(pp, :debug => true, :catch_changes => true)
+    apply_manifest(pp, debug: true, catch_failures: true)
+    apply_manifest(pp, debug: true, catch_changes: true)
     shell('cibadmin --query | grep first_then_two') do |r|
-      expect(r.stdout).to match(/rsc_order/)
-      expect(r.stdout).to match(/first="first_vip"/)
-      expect(r.stdout).to match(/first-action="start"/)
-      expect(r.stdout).to match(/then="second_vip"/)
-      expect(r.stdout).to match(/then-action="start"/)
-      expect(r.stdout).to match(/kind="Mandatory"/) if fact('osfamily') == 'RedHat'
+      expect(r.stdout).to match(%r{rsc_order})
+      expect(r.stdout).to match(%r{first="first_vip"})
+      expect(r.stdout).to match(%r{first-action="start"})
+      expect(r.stdout).to match(%r{then="second_vip"})
+      expect(r.stdout).to match(%r{then-action="start"})
+      expect(r.stdout).to match(%r{kind="Mandatory"}) if fact('osfamily') == 'RedHat'
     end
   end
 
-  it 'should delete an order constraint' do
+  it 'deletes an order constraint' do
     pp = <<-EOS
       cs_order { 'first_then_two':
         ensure => absent,
       }
     EOS
-    apply_manifest(pp, :catch_failures => true)
-    apply_manifest(pp, :catch_changes => true)
+    apply_manifest(pp, catch_failures: true)
+    apply_manifest(pp, catch_changes: true)
     assert_raises(Beaker::Host::CommandFailure) do
       shell('cibadmin --query | grep first_then_two')
     end
   end
 
-  it 'should create a more complex order constraint' do
+  it 'creates a more complex order constraint' do
     pp = <<-EOS
       cs_order { 'one_then_two_complex':
         first  => 'first_vip:stop',
@@ -102,15 +102,15 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
         kind   => 'Optional',
       }
     EOS
-    apply_manifest(pp, :debug => true, :catch_failures => true)
-    apply_manifest(pp, :debug => true, :catch_changes => true)
+    apply_manifest(pp, debug: true, catch_failures: true)
+    apply_manifest(pp, debug: true, catch_changes: true)
     shell('cibadmin --query | grep one_then_two_complex') do |r|
-      expect(r.stdout).to match(/rsc_order/)
-      expect(r.stdout).to match(/first="first_vip"/)
-      expect(r.stdout).to match(/first-action="stop"/)
-      expect(r.stdout).to match(/then="second_vip"/)
-      expect(r.stdout).to match(/then-action="promote"/)
-      expect(r.stdout).to match(/kind="Optional"/) if fact('osfamily') == 'RedHat'
+      expect(r.stdout).to match(%r{rsc_order})
+      expect(r.stdout).to match(%r{first="first_vip"})
+      expect(r.stdout).to match(%r{first-action="stop"})
+      expect(r.stdout).to match(%r{then="second_vip"})
+      expect(r.stdout).to match(%r{then-action="promote"})
+      expect(r.stdout).to match(%r{kind="Optional"}) if fact('osfamily') == 'RedHat'
     end
   end
 end

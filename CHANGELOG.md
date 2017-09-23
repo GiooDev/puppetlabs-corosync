@@ -1,5 +1,29 @@
-##2016-04-14 - Release 1.0.0-beta1
-###Summary
+## 2016-06-16 - Release 1.1.1
+### Summary
+- Workaround upstream Puppet bug regarding PuppetX ruby namespace (#278 #284
+  SERVER-973)
+
+## 2016-06-13 - Release 1.1.0
+### Summary
+- Move helpers functions to PuppetX ruby namespace (#259)
+- Cs\_commit used with cs\_shadow are now idempotent (#263)
+- Cs\_primitive: Fix metadata removal when the metadata parameter is empty (#264)
+- Cs\_primitive: Add a manage\_target\_role parameter (#265)
+- Inner changes to the crm providers to better manage the
+  crm commands (#217 #268 #269 #270 #271 #272 #273)
+- Adoption of Vox Pupuli code of conduct (coc) for further contributions (#267)
+
+## 2016-05-24 - Release 1.0.2
+### Summary
+- Puppet 4.5.0 support (#258)
+- Modulesync update
+
+## 2016-05-23 - Release 1.0.1
+### Summary
+- Minor fix to the release scripts
+
+## 2016-05-23 - Release 1.0.0
+### Summary
 - Ubuntu 14.04 support (#178)
 - pcs provider: improved support for cs\_shadow, cs\_commit(#197 #196 #209)
 - cs\_property now takes an optional `replace` parameter that do not update
@@ -25,7 +49,7 @@
 
 
 
-###Backward incompatible changes
+### Backward incompatible changes
 - cs\_commit resources now only commit when refreshed (see README) (#209)
 - pcs provider: cs\_location: the order of the primitives is now the chronological
   order: ['with-rsc', 'rsc']. This aligns pcs with the crmsh provider (#212)
@@ -36,8 +60,8 @@
   array (#236)
 - cs\_order: the resources\_type parameter has been removed (#246)
 
-##2015-10-14 - Release 0.8.0
-###Summary
+## 2015-10-14 - Release 0.8.0
+### Summary
 - manage package and version for pcs
 - Use Puppet::Type.newtype instead of Puppet.newtype
 - Fix deprecation warning for SUIDManager.
@@ -65,40 +89,40 @@
 - Implement rsc\_defaults
 - make token value configurable
 
-##2014-12-2 - Release 0.7.0
-###Summary
+## 2014-12-2 - Release 0.7.0
+### Summary
 This release refactors the main class to use `corosync::params` for defaults and no longer checks global variables for the parameters. It also includes strict variable support, a few other features, and a bugfix for EL platforms.
 
-####Backwards Incompatible Changes
+#### Backwards Incompatible Changes
 Class `corosync` no longer uses global varaibles `$::port`, `$::threads`, `$::port`, `$::bind_address`, `$::unicast_addresses`, `$::multicast_address`, or `$::enable_secauth`. These should be passed as parameters to the `corosync` class instead.
 
-####Features
+#### Features
 - Strict variable support
 - Add support for spaces in `cs_primitive` parameters
 - Add support for multiple operations with the same name
 - Add some parameter validation
 
-####Bugfixes
+#### Bugfixes
 - Removed `enable corosync` exec for EL platforms
 
-##2014-07-15 - Release 0.6.0
-###Summary
+## 2014-07-15 - Release 0.6.0
+### Summary
 
 This release adds support for the PCS provider.  It also updates metadata.json
 so the module can be uninstalled and upgraded via the puppet module command.
 
-####Features
+#### Features
 - Add support for PCS provider
 
-##2014-06-24 - Release 0.5.0
-###Summary
+## 2014-06-24 - Release 0.5.0
+### Summary
 
 This module has undergone two years of development, and pretty much every
 aspect of it has changed in some regard.  I've tried to capture the key
 changes below, but you should rely on the README to see how things work
 now.
 
-####Features
+#### Features
 - Added a new resource type cs_location.
 - Make primitive utilization attributes managable.
 - Added symmetrical parameter on cs_order (for ordering).
@@ -111,7 +135,7 @@ now.
 - Add tests.
 - Rework significant amounts of the provider code.
 
-####Bugfixes
+#### Bugfixes
 - Delete an existing cib to start fresh
 - Only change /etc/defaults for corosync startup on Debian platforms
 - Fix templates for Puppet 3.2+.
@@ -121,7 +145,7 @@ now.
 - Updated node to node_name in cs_location function as 'node' is a reserved
 name, this replacement allows cs_location to work correctly.
 
-##2012-10-14 - Release 0.1.0
+## 2012-10-14 - Release 0.1.0
 - Added robustness for general corosync management (read the merges)
 - Added `cs_group` type
 - Added some testing

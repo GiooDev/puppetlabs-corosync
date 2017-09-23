@@ -1,11 +1,17 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'crmsh'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/crmsh'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/crmsh'
+end
 
-Puppet::Type.type(:cs_shadow).provide(:crm, :parent => Puppet::Provider::Crmsh) do
-  commands :crm_shadow => 'crm_shadow'
-  commands :cibadmin => 'cibadmin'
+Puppet::Type.type(:cs_shadow).provide(:crm, parent: PuppetX::Voxpupuli::Corosync::Provider::Crmsh) do
+  commands crm_shadow: 'crm_shadow'
+  commands cibadmin: 'cibadmin'
   # Required for block_until_ready
-  commands :crm => 'crm'
+  commands crm: 'crm'
 
   def self.instances
     block_until_ready
@@ -18,7 +24,7 @@ Puppet::Type.type(:cs_shadow).provide(:crm, :parent => Puppet::Provider::Crmsh) 
 
   def get_epoch(cib = nil)
     cmd = [command(:cibadmin), '--query', '--xpath', '/cib', '-l', '-n']
-    raw, status = Puppet::Provider::CibHelper.run_command_in_cib(cmd, cib, false)
+    raw, status = PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, cib, false)
     return :absent if status != 0
     doc = REXML::Document.new(raw)
     current_epoch = REXML::XPath.first(doc, '/cib').attributes['epoch']
@@ -32,12 +38,6 @@ Puppet::Type.type(:cs_shadow).provide(:crm, :parent => Puppet::Provider::Crmsh) 
   end
 
   def sync(_cib)
-    begin
-      crm_shadow('--force', '--delete', @resource[:name])
-    rescue
-      nil
-      # If the CIB doesn't exist, we don't care.
-    end
-    crm_shadow('--batch', '--create', @resource[:name])
+    PuppetX::Voxpupuli::Corosync::Provider::Crmsh.sync_shadow_cib(@resource[:name])
   end
 end

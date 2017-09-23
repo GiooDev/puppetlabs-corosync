@@ -1,7 +1,13 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'crmsh'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/crmsh'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/crmsh'
+end
 
-Puppet::Type.type(:cs_colocation).provide(:crm, :parent => Puppet::Provider::Crmsh) do
+Puppet::Type.type(:cs_colocation).provide(:crm, parent: PuppetX::Voxpupuli::Corosync::Provider::Crmsh) do
   desc 'Specific provider for a rather specific type since I currently have no plan to
         abstract corosync/pacemaker vs. keepalived.  This provider will check the state
         of current primitive colocations on the system; add, delete, or adjust various
@@ -9,7 +15,7 @@ Puppet::Type.type(:cs_colocation).provide(:crm, :parent => Puppet::Provider::Crm
 
   # Path to the crm binary for interacting with the cluster configuration.
   # Decided to just go with relative.
-  commands :crm => 'crm'
+  commands crm: 'crm'
 
   def self.instances
     block_until_ready
@@ -83,11 +89,11 @@ Puppet::Type.type(:cs_colocation).provide(:crm, :parent => Puppet::Provider::Crm
       end
 
       colocation_instance = {
-        :name       => items['id'],
-        :ensure     => :present,
-        :primitives => primitives,
-        :score      => items['score'],
-        :provider   => name
+        name:       items['id'],
+        ensure:     :present,
+        primitives: primitives,
+        score:      items['score'],
+        provider:   name
       }
       instances << new(colocation_instance)
     end
@@ -98,19 +104,19 @@ Puppet::Type.type(:cs_colocation).provide(:crm, :parent => Puppet::Provider::Crm
   # of actually doing the work.
   def create
     @property_hash = {
-      :name       => @resource[:name],
-      :ensure     => :present,
-      :primitives => @resource[:primitives],
-      :score      => @resource[:score],
-      :cib        => @resource[:cib]
+      name:       @resource[:name],
+      ensure:     :present,
+      primitives: @resource[:primitives],
+      score:      @resource[:score],
+      cib:        @resource[:cib]
     }
   end
 
   # Unlike create we actually immediately delete the item.
   def destroy
     debug('Removing colocation')
-    ENV['CIB_shadow'] = @resource[:cib]
-    crm('configure', 'delete', @resource[:name])
+    cmd = [command(:crm), 'configure', 'delete', @resource[:name]]
+    PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
     @property_hash.clear
   end
 
@@ -158,7 +164,7 @@ Puppet::Type.type(:cs_colocation).provide(:crm, :parent => Puppet::Provider::Crm
       Tempfile.open('puppet_crm_update') do |tmpfile|
         tmpfile.write(updated)
         tmpfile.flush
-        Puppet::Provider::Crmsh.run_command_in_cib(['crm', 'configure', 'load', 'update', tmpfile.path.to_s], @resource[:cib])
+        PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(['crm', 'configure', 'load', 'update', tmpfile.path.to_s], @resource[:cib])
       end
     end
   end

@@ -1,7 +1,13 @@
-require 'pathname'
-require Pathname.new(__FILE__).dirname.dirname.expand_path + 'crmsh'
+begin
+  require 'puppet_x/voxpupuli/corosync/provider/crmsh'
+rescue LoadError
+  require 'pathname' # WORKAROUND #14073, #7788 and SERVER-973
+  corosync = Puppet::Module.find('corosync', Puppet[:environment].to_s)
+  raise(LoadError, "Unable to find corosync module in modulepath #{Puppet[:basemodulepath] || Puppet[:modulepath]}") unless corosync
+  require File.join corosync.path, 'lib/puppet_x/voxpupuli/corosync/provider/crmsh'
+end
 
-Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crmsh) do
+Puppet::Type.type(:cs_primitive).provide(:crm, parent: PuppetX::Voxpupuli::Corosync::Provider::Crmsh) do
   desc 'Specific provider for a rather specific type since I currently have no
         plan to abstract corosync/pacemaker vs. keepalived.  Primitives in
         Corosync are the thing we desire to monitor; websites, ipaddresses,
@@ -11,35 +17,36 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
         better model since these values can be almost anything.'
 
   # Path to the crm binary for interacting with the cluster configuration.
-  commands :crm => 'crm'
+  commands crm: 'crm'
 
   # given an XML element (a <primitive> from cibadmin), produce a hash suitible
   # for creating a new provider instance.
   def self.element_to_hash(e)
     hash = {
-      :primitive_class  => e.attributes['class'],
-      :primitive_type   => e.attributes['type'],
-      :provided_by      => e.attributes['provider'],
-      :name             => e.attributes['id'].to_sym,
-      :ensure           => :present,
-      :provider         => name,
-      :parameters       => nvpairs_to_hash(e.elements['instance_attributes']),
-      :operations       => [],
-      :utilization      => nvpairs_to_hash(e.elements['utilization']),
-      :metadata         => nvpairs_to_hash(e.elements['meta_attributes']),
-      :ms_metadata      => {},
-      :promotable       => :false
+      primitive_class:   e.attributes['class'],
+      primitive_type:    e.attributes['type'],
+      provided_by:       e.attributes['provider'],
+      name:              e.attributes['id'].to_sym,
+      ensure:            :present,
+      provider:          name,
+      parameters:        nvpairs_to_hash(e.elements['instance_attributes']),
+      operations:        [],
+      utilization:       nvpairs_to_hash(e.elements['utilization']),
+      metadata:          nvpairs_to_hash(e.elements['meta_attributes']),
+      existing_metadata: nvpairs_to_hash(e.elements['meta_attributes']),
+      ms_metadata:       {},
+      promotable:        :false
     }
 
     operations = e.elements['operations']
     unless operations.nil?
       operations.each_element do |o|
-        valids = o.attributes.reject do |k, _v| k == 'id' end
-        name = valids['name']
+        valids = o.attributes.reject { |k, _v| k == 'id' }
+        name = valids['name'].to_s
         operation = {}
         operation[name] = {}
         valids.each do |k, v|
-          operation[name][k] = v if k != 'name'
+          operation[name][k] = v.to_s if k != 'name'
         end
         unless o.elements['instance_attributes'].nil?
           o.elements['instance_attributes'].each_element do |i|
@@ -56,6 +63,7 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
           hash[:ms_metadata][m.attributes['name']] = m.attributes['value']
         end
       end
+      hash[:existing_ms_metadata] = hash[:ms_metadata].dup
     end
 
     hash
@@ -67,16 +75,7 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
     instances = []
 
     cmd = [command(:crm), 'configure', 'show', 'xml']
-    if Puppet::PUPPETVERSION.to_f < 3.4
-      # rubocop:disable Lint/UselessAssignment
-      raw, status = Puppet::Util::SUIDManager.run_and_capture(cmd)
-      # rubocop:enable Lint/UselessAssignment
-    else
-      # rubocop:disable Lint/UselessAssignment
-      raw = Puppet::Util::Execution.execute(cmd)
-      status = raw.exitstatus
-      # rubocop:enable Lint/UselessAssignment
-    end
+    raw, = PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd)
     doc = REXML::Document.new(raw)
 
     REXML::XPath.each(doc, '//primitive') do |e|
@@ -89,12 +88,12 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
   # of actually doing the work.
   def create
     @property_hash = {
-      :name            => @resource[:name],
-      :ensure          => :present,
-      :primitive_class => @resource[:primitive_class],
-      :provided_by     => @resource[:provided_by],
-      :primitive_type  => @resource[:primitive_type],
-      :promotable      => @resource[:promotable]
+      name:            @resource[:name],
+      ensure:          :present,
+      primitive_class: @resource[:primitive_class],
+      provided_by:     @resource[:provided_by],
+      primitive_type:  @resource[:primitive_type],
+      promotable:      @resource[:promotable]
     }
     @property_hash[:parameters] = @resource[:parameters] unless @resource[:parameters].nil?
     @property_hash[:operations] = @resource[:operations] unless @resource[:operations].nil?
@@ -108,9 +107,11 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
   # to "stop" the primitive before we are able to remove it.
   def destroy
     debug('Stopping primitive before removing it')
-    crm('resource', 'stop', @resource[:name])
+    cmd = [command(:crm), 'resource', 'stop', @resource[:name]]
+    PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
     debug('Removing primitive')
-    crm('configure', 'delete', @resource[:name])
+    cmd = [command(:crm), 'configure', 'delete', @resource[:name]]
+    PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
     @property_hash.clear
   end
 
@@ -170,8 +171,10 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
       @property_hash[:promotable] = should
     when :false
       @property_hash[:promotable] = should
-      crm('resource', 'stop', "ms_#{@resource[:name]}")
-      crm('configure', 'delete', "ms_#{@resource[:name]}")
+      cmd = [command(:crm), 'resource', 'stop', "ms_#{@resource[:name]}"]
+      PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
+      cmd = [command(:crm), 'configure', 'delete', "ms_#{@resource[:name]}"]
+      PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
     end
   end
 
@@ -191,6 +194,14 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
           o.values.first.each_pair do |k, v|
             operations << "#{k}=#{v} "
           end
+        end
+      end
+      if @resource && !@resource.manage_target_role?
+        if @property_hash[:existing_metadata] && @property_hash[:existing_metadata]['target-role']
+          @property_hash[:metadata]['target-role'] = @property_hash[:existing_metadata]['target-role']
+        end
+        if @property_hash[:existing_ms_metadata] && @property_hash[:existing_ms_metadata]['target-role']
+          @property_hash[:ms_metadata]['target-role'] = @property_hash[:existing_ms_metadata]['target-role']
         end
       end
       unless @property_hash[:parameters].empty?
@@ -233,7 +244,8 @@ Puppet::Type.type(:cs_primitive).provide(:crm, :parent => Puppet::Provider::Crms
       Tempfile.open('puppet_crm_update') do |tmpfile|
         tmpfile.write(updated)
         tmpfile.flush
-        Puppet::Provider::Crmsh.run_command_in_cib(['crm', '-F', 'configure', 'load', 'update', tmpfile.path.to_s], @resource[:cib])
+        cmd = ['crm', '-F', 'configure', 'load', 'update', tmpfile.path.to_s]
+        PuppetX::Voxpupuli::Corosync::Provider::Crmsh.run_command_in_cib(cmd, @resource[:cib])
       end
     end
   end

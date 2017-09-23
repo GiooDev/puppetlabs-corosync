@@ -47,15 +47,15 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
       }
     EOS
 
-    apply_manifest(pp, :catch_failures => true)
-    apply_manifest(pp, :catch_changes => true)
+    apply_manifest(pp, catch_failures: true)
+    apply_manifest(pp, catch_changes: true)
   end
 
   describe service('corosync') do
     it { is_expected.to be_running }
   end
 
-  it 'should create a location' do
+  it 'creates a location' do
     pp = <<-EOS
       cs_location { 'duncan_vip_there':
         primitive => 'duncan_vip',
@@ -63,27 +63,27 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
         score     => 'INFINITY',
       }
     EOS
-    apply_manifest(pp, :debug => true, :catch_failures => true)
-    apply_manifest(pp, :debug => true, :catch_changes => true)
+    apply_manifest(pp, debug: true, catch_failures: true)
+    apply_manifest(pp, debug: true, catch_changes: true)
     shell('cibadmin --query | grep duncan_vip_there') do |r|
-      expect(r.stdout).to match(/rsc_location/)
+      expect(r.stdout).to match(%r{rsc_location})
     end
   end
 
-  it 'should delete a location' do
+  it 'deletes a location' do
     pp = <<-EOS
       cs_location { 'duncan_vip_there':
         ensure => absent,
       }
     EOS
-    apply_manifest(pp, :catch_failures => true)
-    apply_manifest(pp, :catch_changes => true)
+    apply_manifest(pp, catch_failures: true)
+    apply_manifest(pp, catch_changes: true)
     assert_raises(Beaker::Host::CommandFailure) do
       shell('cibadmin --query | grep duncan_vip_there')
     end
   end
 
-  it 'should create a location with resource-discovery' do
+  it 'creates a location with resource-discovery' do
     pp = <<-EOS
       cs_location { 'duncan_vip_there':
         primitive          => 'duncan_vip',
@@ -92,13 +92,13 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
         score              => 'INFINITY',
       }
     EOS
-    apply_manifest(pp, :debug => true, :catch_failures => true)
-    apply_manifest(pp, :debug => true, :catch_changes => true)
+    apply_manifest(pp, debug: true, catch_failures: true)
+    apply_manifest(pp, debug: true, catch_changes: true)
     shell('cibadmin --query | grep duncan_vip_there') do |r|
-      expect(r.stdout).to match(/rsc_location/)
+      expect(r.stdout).to match(%r{rsc_location})
       # Feature not supported in Ubuntu
-      expect(r.stdout).to match(/resource-discovery="exclusive"/) if fact('osfamily') == 'RedHat'
-      expect(r.stdout).to_not match(/resource-discovery="exclusive"/) if fact('osfamily') != 'RedHat'
+      expect(r.stdout).to match(%r{resource-discovery="exclusive"}) if fact('osfamily') == 'RedHat'
+      expect(r.stdout).not_to match(%r{resource-discovery="exclusive"}) if fact('osfamily') != 'RedHat'
     end
   end
 
@@ -115,11 +115,11 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
             },
       }
     EOS
-    apply_manifest(pp, :debug => true, :catch_failures => true)
-    apply_manifest(pp, :debug => true, :catch_changes => true)
+    apply_manifest(pp, debug: true, catch_failures: true)
+    apply_manifest(pp, debug: true, catch_changes: true)
     shell('cibadmin --query | grep duncan_vip_rule') do |r|
-      expect(r.stdout).to match(/rule/)
-      expect(r.stdout).to match(/attribute="#kind"/)
+      expect(r.stdout).to match(%r{rule})
+      expect(r.stdout).to match(%r{attribute="#kind"})
     end
   end
 end

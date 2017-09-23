@@ -1,21 +1,36 @@
 {
   "name": "puppet-corosync",
-  "version": "1.0.0-beta1",
-  "author": "puppet-community",
+  "version": "1.1.2-rc0",
+  "author": "voxpupuli",
   "summary": "This module is a set of manifests and types/providers for quickly setting up highly available clusters using Corosync",
   "license": "Apache-2.0",
   "source": "https://github.com/voxpupuli/puppet-corosync",
   "project_page": "https://github.com/voxpupuli/puppet-corosync",
   "issues_url": "https://github.com/voxpupuli/puppet-corosync/issues",
   "operatingsystem_support": [
-    { "operatingsystem":"RedHat",
-      "operatingsystemrelease":[ "7" ] },
-    { "operatingsystem":"CentOS",
-      "operatingsystemrelease":[ "7" ] },
-    { "operatingsystem": "Ubuntu",
-      "operatingsystemrelease": ["14.04"] }
+    {
+      "operatingsystem": "RedHat",
+      "operatingsystemrelease": [
+        "7"
+      ]
+    },
+    {
+      "operatingsystem": "CentOS",
+      "operatingsystemrelease": [
+        "7"
+      ]
+    },
+    {
+      "operatingsystem": "Ubuntu",
+      "operatingsystemrelease": [
+        "14.04"
+      ]
+    }
   ],
   "dependencies": [
-    {"name":"puppetlabs/stdlib","version_requirement":"4.x"}
+    {
+      "name": "puppetlabs/stdlib",
+      "version_requirement": "4.x"
+    }
   ]
 }

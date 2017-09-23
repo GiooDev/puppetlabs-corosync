@@ -1,3 +1,5 @@
+require 'puppet/parameter/boolean'
+
 Puppet::Type.newtype(:cs_primitive) do
   @doc = "Type for manipulating Corosync/Pacemaker primitives.  Primitives
     are probably the most important building block when creating highly
@@ -63,6 +65,13 @@ Puppet::Type.newtype(:cs_primitive) do
       also be added to your manifest."
   end
 
+  newparam(:manage_target_role, boolean: true, parent: Puppet::Parameter::Boolean) do
+    desc "Should manage the target-role metadata? Setting this to false will prevent
+      Puppet to start resources that have been stopped manually"
+
+    defaultto true
+  end
+
   # Our parameters and operations properties must be hashes.
   newproperty(:parameters) do
     desc "A hash of params for the primitive.  Parameters in a primitive are
@@ -81,7 +90,7 @@ Puppet::Type.newtype(:cs_primitive) do
     # rubocop:enable Style/EmptyLiteral
   end
 
-  newproperty(:operations, :array_matching => :all) do
+  newproperty(:operations, array_matching: :all) do
     desc "A hash of operations for the primitive.  Operations defined in a
       primitive are little more predictable as they are commonly things like
       monitor or start and their values are in seconds.  Since each resource
@@ -150,12 +159,12 @@ Puppet::Type.newtype(:cs_primitive) do
       message = []
       unless new_ops.empty?
         m = "#{new_ops.size} added:"
-        new_ops.each do |n| m << ' ' << op_to_s(n) end
+        new_ops.each { |n| m << ' ' << op_to_s(n) }
         message << m
       end
       unless deleted_ops.empty?
         m = "#{deleted_ops.size} removed:"
-        deleted_ops.each do |n| m << ' ' << op_to_s(n) end
+        deleted_ops.each { |n| m << ' ' << op_to_s(n) }
         message << m
       end
       message << "#{same_ops.size} kept" unless same_ops.empty?
@@ -195,6 +204,41 @@ Puppet::Type.newtype(:cs_primitive) do
     validate do |value|
       raise Puppet::Error, 'Puppet::Type::Cs_Primitive: metadata property must be a hash.' unless value.is_a? Hash
     end
+
+    def insync?(is)
+      if @resource.manage_target_role?
+        super
+      else
+        super(is.reject { |k| k == 'target-role' })
+      end
+    end
+
+    # rubocop:disable Style/PredicateName
+    def is_to_s(is)
+      # rubocop:enable Style/PredicateName
+      if @resource.manage_target_role?
+        super
+      else
+        super(is.reject { |k| k == 'target-role' })
+      end
+    end
+
+    def should_to_s(should)
+      if @resource.manage_target_role?
+        super
+      else
+        super(should.reject { |k| k == 'target-role' })
+      end
+    end
+
+    def change_to_s(currentvalue, newvalue)
+      if @resource.manage_target_role?
+        super
+      else
+        super + ' (target-role is not managed)'
+      end
+    end
+
     # rubocop:disable Style/EmptyLiteral
     defaultto Hash.new
     # rubocop:enable Style/EmptyLiteral
@@ -206,10 +250,18 @@ Puppet::Type.newtype(:cs_primitive) do
     munge do |value_hash|
       # Ruby 1.8.7 does not support each_with_object
       # rubocop:disable Style/EachWithObject
-      value_hash.inject({}) do |memo, (key, value)|
+      value_hash.reduce({}) do |memo, (key, value)|
         # rubocop:enable Style/EachWithObject
         memo[key] = String(value)
         memo
+      end
+    end
+
+    def insync?(is)
+      if @resource.manage_target_role?
+        super
+      else
+        super(is.reject { |k| k == 'target-role' })
       end
     end
 
@@ -235,7 +287,9 @@ Puppet::Type.newtype(:cs_primitive) do
   end
 
   autorequire(:cs_shadow) do
-    [@parameters[:cib]]
+    autos = []
+    autos << @parameters[:cib].value if @parameters[:cib]
+    autos
   end
 
   autorequire(:service) do

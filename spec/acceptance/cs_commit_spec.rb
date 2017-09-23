@@ -71,57 +71,54 @@ NWyN0RsTXFaqowV1/HSyvfD7LoF/CrmN5gOAM3Ierv/Ti9uqGVhdGBd/kw=='
       }
     EOS
 
-    apply_manifest(pp, :debug => true, :trace => true, :catch_failures => true)
-    # Another run is needed to update the Puppet shadow CIB
-    apply_manifest(pp, :expect_changes => true)
-    # But the last one should not change anything
-    apply_manifest(pp, :catch_changes => true)
+    apply_manifest(pp, debug: true, trace: true, catch_failures: true)
+    apply_manifest(pp, catch_changes: true)
   end
 
   describe service('corosync') do
     it { is_expected.to be_running }
   end
 
-  it 'should create the resources in the cib' do
+  it 'creates the resources in the cib' do
     command = if fact('osfamily') == 'RedHat'
                 'pcs resource show'
               else
                 'crm_resource --list'
               end
     shell(command) do |r|
-      expect(r.stdout).to match(/apache2_service.*IPaddr2/)
-      expect(r.stdout).to match(/apache2_vip.*IPaddr2/)
+      expect(r.stdout).to match(%r{apache2_service.*IPaddr2})
+      expect(r.stdout).to match(%r{apache2_vip.*IPaddr2})
     end
   end
 
-  it 'should create the colocation in the cib' do
+  it 'creates the colocation in the cib' do
     shell('cibadmin --query') do |r|
-      expect(r.stdout).to match(/colocation.*\swith-rsc="apache2_vip"/)
-      expect(r.stdout).to match(/colocation.*\srsc="apache2_service"/)
+      expect(r.stdout).to match(%r{colocation.*\swith-rsc="apache2_vip"})
+      expect(r.stdout).to match(%r{colocation.*\srsc="apache2_service"})
     end
   end
 
-  it 'should create the cib and a shadow cib' do
+  it 'creates the cib and a shadow cib' do
     shell('cibadmin --query')
     shell('CIB_shadow=puppet cibadmin --query')
   end
 
-  it 'should create the resources in the shadow cib' do
+  it 'creates the resources in the shadow cib' do
     command = if fact('osfamily') == 'RedHat'
                 'CIB_shadow=puppet pcs resource show'
               else
                 'CIB_shadow=puppet crm_resource --list'
               end
     shell(command) do |r|
-      expect(r.stdout).to match(/apache2_service.*IPaddr2/)
-      expect(r.stdout).to match(/apache2_vip.*IPaddr2/)
+      expect(r.stdout).to match(%r{apache2_service.*IPaddr2})
+      expect(r.stdout).to match(%r{apache2_vip.*IPaddr2})
     end
   end
 
-  it 'should create the colocation in the shadow cib' do
+  it 'creates the colocation in the shadow cib' do
     shell('CIB_shadow=puppet cibadmin --query | grep apache2_vip_with_service') do |r|
-      expect(r.stdout).to match(/colocation.*\swith-rsc="apache2_vip"/)
-      expect(r.stdout).to match(/colocation.*\srsc="apache2_service"/)
+      expect(r.stdout).to match(%r{colocation.*\swith-rsc="apache2_vip"})
+      expect(r.stdout).to match(%r{colocation.*\srsc="apache2_service"})
     end
   end
 end

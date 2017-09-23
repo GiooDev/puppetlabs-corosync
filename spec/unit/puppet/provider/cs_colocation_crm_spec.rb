@@ -5,10 +5,6 @@ describe Puppet::Type.type(:cs_colocation).provider(:crm) do
     described_class.stubs(:command).with(:crm).returns 'crm'
   end
 
-  before(:all) do
-    described_class.expects(:block_until_ready).returns(nil)
-  end
-
   # rubocop:disable Lint/UselessAssignment
   let :test_cib do
     test_cib = <<-EOS
@@ -35,7 +31,11 @@ describe Puppet::Type.type(:cs_colocation).provider(:crm) do
   end
 
   context 'when getting instances' do
-    it 'should have an instance for each <colocation>' do
+    before do
+      described_class.expects(:block_until_ready).returns(nil)
+    end
+
+    it 'has an instance for each <colocation>' do
       expect(instances.count).to eq(1)
     end
 
@@ -48,11 +48,11 @@ describe Puppet::Type.type(:cs_colocation).provider(:crm) do
         expect(instance).to be_a_kind_of(described_class)
       end
 
-      it "should be named by the <primitive>'s id attribute" do
+      it "is named by the <primitive>'s id attribute" do
         expect(instance.name).to eq('first_with_second')
       end
 
-      it 'should have attributes' do
+      it 'has attributes' do
         expect(instance.primitives).to eq(%w(second first))
         expect(instance.score).to eq('INFINITY')
       end
@@ -66,19 +66,19 @@ describe Puppet::Type.type(:cs_colocation).provider(:crm) do
 
     def expect_update(pattern)
       if Puppet::Util::Package.versioncmp(Puppet::PUPPETVERSION, '3.4') == -1
-        Puppet::Util::SUIDManager.expects(:run_and_capture).with { |*args|
+        Puppet::Util::SUIDManager.expects(:run_and_capture).with do |*args|
           if args.slice(0..2) == %w(configure load update)
             expect(File.read(args[3])).to match(pattern)
           end
           true
-        }.at_least_once.returns(['', 0])
+        end.at_least_once.returns(['', 0])
       else
-        Puppet::Util::Execution.expects(:execute).with { |*args|
+        Puppet::Util::Execution.expects(:execute).with do |*args|
           if args.slice(0..2) == %w(configure load update)
             expect(File.read(args[3])).to match(pattern)
           end
           true
-        }.at_least_once.returns(
+        end.at_least_once.returns(
           Puppet::Util::Execution::ProcessOutput.new('', 0)
         )
       end
@@ -87,10 +87,11 @@ describe Puppet::Type.type(:cs_colocation).provider(:crm) do
     context 'with 2 primitives' do
       let :resource do
         Puppet::Type.type(:cs_colocation).new(
-          :name       => 'first_with_second',
-          :provider   => :crm,
-          :primitives => %w(first second),
-          :ensure     => :present)
+          name:       'first_with_second',
+          provider:   :crm,
+          primitives: %w(first second),
+          ensure:     :present
+        )
       end
 
       let :instance do
@@ -99,43 +100,44 @@ describe Puppet::Type.type(:cs_colocation).provider(:crm) do
         instance
       end
 
-      it 'should creates colocation with defaults' do
-        expect_update(/colocation first_with_second INFINITY: second first/)
+      it 'createses colocation with defaults' do
+        expect_update(%r{colocation first_with_second INFINITY: second first})
       end
 
-      it 'should update first primitive' do
+      it 'updates first primitive' do
         instance.primitives = %w(first_updated second)
-        expect_update(/colocation first_with_second INFINITY: second first_updated/)
+        expect_update(%r{colocation first_with_second INFINITY: second first_updated})
       end
 
-      it 'should updates second primitive' do
+      it 'updateses second primitive' do
         instance.primitives = %w(first second_updated)
-        expect_update(/colocation first_with_second INFINITY: second_updated first/)
+        expect_update(%r{colocation first_with_second INFINITY: second_updated first})
       end
 
-      it 'should updates both primitives' do
+      it 'updateses both primitives' do
         instance.primitives = %w(first_updated second_updated)
-        expect_update(/colocation first_with_second INFINITY: second_updated first_updated/)
+        expect_update(%r{colocation first_with_second INFINITY: second_updated first_updated})
       end
 
-      it 'should set score' do
+      it 'sets score' do
         instance.score = '-INFINITY'
-        expect_update(/colocation first_with_second -INFINITY: second first/)
+        expect_update(%r{colocation first_with_second -INFINITY: second first})
       end
 
-      it 'should add a third primitive' do
+      it 'adds a third primitive' do
         instance.primitives = %w(first second third)
-        expect_update(/colocation first_with_second INFINITY: first second third/)
+        expect_update(%r{colocation first_with_second INFINITY: first second third})
       end
     end
 
     context 'with 3 or more primitives' do
       let :resource do
         Puppet::Type.type(:cs_colocation).new(
-          :name       => 'first_with_second_with_third',
-          :provider   => :crm,
-          :primitives => %w(first second third),
-          :ensure     => :present)
+          name:       'first_with_second_with_third',
+          provider:   :crm,
+          primitives: %w(first second third),
+          ensure:     :present
+        )
       end
 
       let :instance do
@@ -144,8 +146,8 @@ describe Puppet::Type.type(:cs_colocation).provider(:crm) do
         instance
       end
 
-      it 'should create colocation with 3 primitives' do
-        expect_update(/colocation first_with_second_with_third INFINITY: first second third/)
+      it 'creates colocation with 3 primitives' do
+        expect_update(%r{colocation first_with_second_with_third INFINITY: first second third})
       end
     end
   end
